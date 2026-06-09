@@ -18,50 +18,219 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
     $full_name = $firstname . ' ' . $lastname;
 
-    $sql = "INSERT INTO users (name, email, phone, password) VALUES (?, ?, ?, ?)";
+    $sql    = "INSERT INTO users (name, email, phone, password) VALUES (?, ?, ?, ?)";
     $params = array($full_name, $email, $phone, $hashed_password);
-    $stmt = sqlsrv_query($conn, $sql, $params);
+    $stmt   = sqlsrv_query($conn, $sql, $params);
 
     if ($stmt) {
         $sql_get_id = "SELECT id FROM users WHERE email = ?";
-        $stmt_id = sqlsrv_query($conn, $sql_get_id, array($email));
-        $user = sqlsrv_fetch_array($stmt_id, SQLSRV_FETCH_ASSOC);
+        $stmt_id    = sqlsrv_query($conn, $sql_get_id, array($email));
+        $user       = sqlsrv_fetch_array($stmt_id, SQLSRV_FETCH_ASSOC);
 
-        $_SESSION['user_id']   = $user['id'];
-        $_SESSION['user_name'] = $full_name;
+        session_regenerate_id(true);
+        $_SESSION['user_id']     = $user['id'];
+        $_SESSION['user_name']   = $full_name;
         $_SESSION['user_avatar'] = "default-avatar.png";
 
         header("Location: ../index.php");
         exit();
     } else {
-        die(print_r(sqlsrv_errors(), true));
+        error_log('StayHub signup error: ' . print_r(sqlsrv_errors(), true));
+        die("An error occurred. Please try again.");
     }
 }
 ?>
 
 <div class="login-form-container">
     <h2>Create Account</h2>
-    <form action="api/signup.php" method="POST">
-        <div class="input-group">
-            <label>First Name</label>
-            <input type="text" name="firstname" required placeholder="First name">
+    <form action="api/signup.php" method="POST" id="signup-form" novalidate>
+
+        <div class="form-row-inline">
+            <div class="input-group">
+                <label for="su-firstname">First Name</label>
+                <input type="text" id="su-firstname" name="firstname"
+                       required placeholder="First name"
+                       autocomplete="given-name">
+                <span class="field-error" id="err-firstname"></span>
+            </div>
+            <div class="input-group">
+                <label for="su-lastname">Last Name</label>
+                <input type="text" id="su-lastname" name="lastname"
+                       required placeholder="Last name"
+                       autocomplete="family-name">
+                <span class="field-error" id="err-lastname"></span>
+            </div>
         </div>
+
         <div class="input-group">
-            <label>Last Name</label>
-            <input type="text" name="lastname" required placeholder="Last name">
+            <label for="su-email">Email</label>
+            <input type="email" id="su-email" name="email"
+                   required placeholder="Enter your email"
+                   autocomplete="email">
+            <span class="field-error" id="err-email"></span>
         </div>
+
         <div class="input-group">
-            <label>Email</label>
-            <input type="email" name="email" required placeholder="Enter your email">
+            <label for="su-phone">Phone <span style="color:#aaa;font-weight:400;">(optional)</span></label>
+            <input type="text" id="su-phone" name="phone"
+                   placeholder="Phone number"
+                   autocomplete="tel">
+            <span class="field-error" id="err-phone"></span>
         </div>
+
         <div class="input-group">
-            <label>Phone</label>
-            <input type="text" name="phone" placeholder="Phone number">
+            <label for="su-password">Password</label>
+            <input type="password" id="su-password" name="password"
+                   required placeholder="At least 8 characters"
+                   autocomplete="new-password">
+            <span class="field-error" id="err-password"></span>
+            <!-- Strength bar -->
+            <div id="strength-bar-wrap" style="margin-top:6px; display:none;">
+                <div style="height:4px; border-radius:4px; background:#eee; overflow:hidden;">
+                    <div id="strength-bar" style="height:100%; width:0; border-radius:4px; transition:width 0.3s, background 0.3s;"></div>
+                </div>
+                <span id="strength-label" style="font-size:11px; color:#717171;"></span>
+            </div>
         </div>
-        <div class="input-group">
-            <label>Password</label>
-            <input type="password" name="password" required placeholder="Create a password">
-        </div>
+
         <button type="submit" class="auth-submit-btn">Sign Up</button>
     </form>
 </div>
+
+<style>
+.field-error {
+    display: block;
+    font-size: 12px;
+    color: #ff385c;
+    margin-top: 4px;
+    min-height: 16px;
+}
+#signup-form input.input-invalid {
+    border-color: #ff385c;
+    background: #fff5f7;
+}
+#signup-form input.input-valid {
+    border-color: #34c759;
+}
+.form-row-inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+</style>
+
+<script>
+(function () {
+    const form = document.getElementById('signup-form');
+
+    function showError(inputEl, errEl, msg) {
+        errEl.textContent = msg;
+        if (msg) {
+            inputEl.classList.add('input-invalid');
+            inputEl.classList.remove('input-valid');
+        } else {
+            inputEl.classList.remove('input-invalid');
+            inputEl.classList.add('input-valid');
+        }
+    }
+
+    // ── Validators ──
+    function validateName(val, label) {
+        if (!val.trim()) return label + ' is required.';
+        if (val.trim().length < 2) return label + ' must be at least 2 characters.';
+        return '';
+    }
+
+    function validateEmail(val) {
+        if (!val.trim()) return 'Email is required.';
+        if (!val.includes('@')) return 'Missing "@" — please enter a valid email address.';
+        const parts = val.split('@');
+        if (parts[0].length === 0) return 'Please enter something before the "@".';
+        if (!parts[1] || !parts[1].includes('.')) return 'Missing domain — e.g. name@example.com';
+        return '';
+    }
+
+    function validatePassword(val) {
+        if (!val) return 'Password is required.';
+        if (val.length < 8) return 'Password must be at least 8 characters (currently ' + val.length + ').';
+        return '';
+    }
+
+    function validatePhone(val) {
+        if (!val) return ''; // optional
+        if (!/^[\d\s\+\-\(\)]{6,20}$/.test(val)) return 'Enter a valid phone number.';
+        return '';
+    }
+
+    // ── Password strength bar ──
+    const passEl     = document.getElementById('su-password');
+    const strengthWrap = document.getElementById('strength-bar-wrap');
+    const strengthBar  = document.getElementById('strength-bar');
+    const strengthLabel = document.getElementById('strength-label');
+
+    passEl.addEventListener('input', function () {
+        const val = this.value;
+        strengthWrap.style.display = val.length ? 'block' : 'none';
+
+        let score = 0;
+        if (val.length >= 8)  score++;
+        if (val.length >= 12) score++;
+        if (/[A-Z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+
+        const levels = [
+            { label: 'Too short',  color: '#ff385c', pct: '20%' },
+            { label: 'Weak',       color: '#ff385c', pct: '35%' },
+            { label: 'Fair',       color: '#ff9500', pct: '55%' },
+            { label: 'Good',       color: '#34c759', pct: '75%' },
+            { label: 'Strong',     color: '#34c759', pct: '100%' },
+        ];
+        const lvl = levels[Math.min(score, 4)];
+        strengthBar.style.width      = lvl.pct;
+        strengthBar.style.background = lvl.color;
+        strengthLabel.textContent    = lvl.label;
+        strengthLabel.style.color    = lvl.color;
+
+        // Also re-run error check live
+        if (passEl.classList.contains('input-invalid')) {
+            showError(passEl, document.getElementById('err-password'), validatePassword(val));
+        }
+    });
+
+    // ── Blur validation ──
+    const fields = [
+        { el: 'su-firstname', err: 'err-firstname', fn: v => validateName(v, 'First name') },
+        { el: 'su-lastname',  err: 'err-lastname',  fn: v => validateName(v, 'Last name') },
+        { el: 'su-email',     err: 'err-email',     fn: v => validateEmail(v) },
+        { el: 'su-phone',     err: 'err-phone',     fn: v => validatePhone(v) },
+        { el: 'su-password',  err: 'err-password',  fn: v => validatePassword(v) },
+    ];
+
+    fields.forEach(function(f) {
+        const inputEl = document.getElementById(f.el);
+        const errEl   = document.getElementById(f.err);
+        inputEl.addEventListener('blur', function () {
+            showError(inputEl, errEl, f.fn(this.value));
+        });
+        inputEl.addEventListener('input', function () {
+            if (inputEl.classList.contains('input-invalid')) {
+                showError(inputEl, errEl, f.fn(this.value));
+            }
+        });
+    });
+
+    // ── Submit guard ──
+    form.addEventListener('submit', function (e) {
+        let hasError = false;
+        fields.forEach(function(f) {
+            const inputEl = document.getElementById(f.el);
+            const errEl   = document.getElementById(f.err);
+            const msg     = f.fn(inputEl.value);
+            showError(inputEl, errEl, msg);
+            if (msg) hasError = true;
+        });
+        if (hasError) e.preventDefault();
+    });
+})();
+</script>
