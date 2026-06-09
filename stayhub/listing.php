@@ -1,6 +1,9 @@
 <?php
 session_start();
 require_once 'config.php';
+if (empty(\$_SESSION['csrf_token'])) {
+    \$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 $id = isset($_GET['id']) ? $_GET['id'] : die("ID missing");
 $sql = "SELECT l.*, u.name as HostName FROM listings l JOIN users u ON l.user_id = u.id WHERE l.id = ?";
@@ -205,6 +208,7 @@ $display_image = $img_row ? $img_row['image_url'] : 'https://images.unsplash.com
             <span class="close" id="closeModal">&times;</span>
             <h3 style="margin-top:0;">Reserve your stay</h3>
             <form action="api/process-booking.php" method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                 <input type="hidden" name="listing_id" value="<?php echo $id; ?>">
                 <input type="text" name="guest_name" placeholder="Full Name" required>
                 <input type="email" name="guest_email" placeholder="Email" required>
