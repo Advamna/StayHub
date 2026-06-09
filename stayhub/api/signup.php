@@ -74,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <label for="su-phone">Phone <span style="color:#aaa;font-weight:400;">(optional)</span></label>
             <input type="text" id="su-phone" name="phone"
                    placeholder="Phone number"
+                   inputmode="numeric"
                    autocomplete="tel">
             <span class="field-error" id="err-phone"></span>
         </div>
@@ -141,6 +142,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 e.preventDefault(); // Block digits and all other non-letter keys
             }
         });
+    });
+
+    // ── Block letters & symbols on phone field (digits, +, -, spaces, parentheses only) ──
+    document.getElementById('su-phone').addEventListener('keydown', function(e) {
+        const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End',
+                         '+','-',' ','(', ')'];
+        if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) {
+            e.preventDefault(); // Block letters and all non-numeric keys
+        }
     });
 
     // ── Block digits on email field ──
