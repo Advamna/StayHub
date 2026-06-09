@@ -431,6 +431,27 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
                         <a href="receipt.php?id=<?php echo $rental['id']; ?>" class="btn-explore" style="background: #222; padding: 8px 18px; font-size: 13px;">
                             <i class="fas fa-file-invoice"></i> View Receipt
                         </a>
+                        <?php
+                        // Feature 8: Review button — only if checkout has passed
+                        $checkoutDate = ($rental['check_out'] instanceof DateTime)
+                            ? $rental['check_out']
+                            : new DateTime($rental['check_out']);
+                        $checkoutDate->setTime(0,0,0);
+                        $todayDate = new DateTime(); $todayDate->setTime(0,0,0);
+                        $canLeaveReview = ($checkoutDate <= $todayDate);
+                        $revChkSql  = "SELECT id FROM reviews WHERE reservation_id = ? AND user_id = ?";
+                        $revChkStmt = sqlsrv_query($conn, $revChkSql, [(int)$rental['id'], $user_id]);
+                        $hasReviewed = ($revChkStmt && sqlsrv_fetch_array($revChkStmt, SQLSRV_FETCH_ASSOC));
+                        ?>
+                        <?php if ($canLeaveReview && !$hasReviewed): ?>
+                        <a href="listing.php?id=<?php echo $rental['listing_id']; ?>#reviews"
+                           class="btn-explore"
+                           style="background:#ff385c; padding:8px 18px; font-size:13px;">
+                            <i class="fas fa-star"></i> Leave a Review
+                        </a>
+                        <?php elseif ($hasReviewed): ?>
+                        <span style="font-size:12px;color:#717171;font-style:italic;"><i class="fas fa-check"></i> Reviewed</span>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </div>
