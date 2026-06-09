@@ -489,6 +489,25 @@ $listing_ids = array_column($listings, 'id');
             .listing-img { width: 150px; min-height: 100px; }
             .bookings-section { page-break-inside: auto; }
         }
+
+        /* ── Feature 15: Host availability calendar ── */
+        .cal-section { margin-top: 0; }
+        .cal-section-header { font-size: 14px; font-weight: 700; color: #484848; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .host-mini-cal { font-family: 'Inter', sans-serif; user-select: none; max-width: 320px; }
+        .hcal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .hcal-nav button { background: none; border: 1px solid #ddd; border-radius: 6px; padding: 3px 9px; cursor: pointer; font-size: 14px; }
+        .hcal-nav button:hover { background: #f5f5f5; }
+        .hcal-month { font-weight: 700; font-size: 14px; }
+        .hcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
+        .hcal-dl { font-size: 10px; color: #717171; font-weight: 600; padding: 3px 0; }
+        .hcal-day { font-size: 12px; padding: 5px 2px; border-radius: 5px; }
+        .hcal-day.past { color: #ccc; }
+        .hcal-day.booked { background: #fee2e2; color: #b91c1c; font-weight: 600; position: relative; cursor: default; }
+        .hcal-day.avail { color: #222; }
+        .hcal-day.today { font-weight: 700; border: 2px solid #ff385c; }
+        .hcal-legend { display: flex; gap: 12px; margin-top: 8px; font-size: 11px; color: #717171; }
+        .hcal-legend span { display: flex; align-items: center; gap: 4px; }
+        .hcal-dot { width: 9px; height: 9px; border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -703,6 +722,32 @@ foreach ($listings as $l) {
                     <?php endif; ?>
                 </div>
             </div>
+
+            <!-- ── Feature 15: Host Booking Calendar ── -->
+            <div class="bookings-section cal-section" style="margin-top:16px;">
+                <button class="bookings-toggle" onclick="toggleBookings(this)">
+                    <i class="fas fa-calendar-alt"></i>
+                    Availability Calendar
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </button>
+                <div class="bookings-table-wrap">
+                    <div style="padding:16px;">
+                        <div class="host-mini-cal" id="hcal-<?php echo $listing['id']; ?>">
+                            <div class="hcal-nav">
+                                <button onclick="hCalPrev(<?php echo $listing['id']; ?>)">&#8249;</button>
+                                <span class="hcal-month" id="hcal-label-<?php echo $listing['id']; ?>"></span>
+                                <button onclick="hCalNext(<?php echo $listing['id']; ?>)">&#8250;</button>
+                            </div>
+                            <div class="hcal-grid" id="hcal-grid-<?php echo $listing['id']; ?>"></div>
+                            <div class="hcal-legend">
+                                <span><span class="hcal-dot" style="background:#fee2e2;border:1px solid #f87171;"></span> Booked</span>
+                                <span><span class="hcal-dot" style="background:#fff;border:1px solid #ddd;"></span> Available</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
         <?php endforeach; ?>
     <?php endif; ?>
@@ -754,6 +799,66 @@ function printSingle(id) {
     document.getElementById('listing-' + id).classList.add('print-target');
     window.print();
 }
+
+// ── Feature 15: Host per-listing calendars ──────────────
+var hCalDates  = {};  // listingId -> bookedRanges
+var hCalMonths = {};  // listingId -> current Date
+
+function hCalInit(listingId) {
+    hCalMonths[listingId] = new Date();
+    hCalMonths[listingId].setDate(1);
+    fetch('api/get-booked-dates.php?listing_id=' + listingId)
+        .then(function(r){ return r.json(); })
+        .then(function(ranges) {
+            hCalDates[listingId] = ranges.map(function(r) {
+                return { start: new Date(r.start + 'T00:00:00'), end: new Date(r.end + 'T00:00:00') };
+            });
+            hCalRender(listingId);
+        })
+        .catch(function(){ hCalDates[listingId] = []; hCalRender(listingId); });
+}
+
+function hCalIsBooked(listingId, date) {
+    return (hCalDates[listingId] || []).some(function(r){ return date >= r.start && date < r.end; });
+}
+
+function hCalRender(listingId) {
+    var d = hCalMonths[listingId];
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var label  = document.getElementById('hcal-label-' + listingId);
+    var grid   = document.getElementById('hcal-grid-'  + listingId);
+    if (!label || !grid) return;
+    label.textContent = months[d.getMonth()] + ' ' + d.getFullYear();
+    grid.innerHTML = '';
+    ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(function(dl) {
+        var el = document.createElement('div'); el.className = 'hcal-dl'; el.textContent = dl; grid.appendChild(el);
+    });
+    var today = new Date(); today.setHours(0,0,0,0);
+    var first = new Date(d.getFullYear(), d.getMonth(), 1);
+    for (var b = 0; b < first.getDay(); b++) {
+        var blank = document.createElement('div'); blank.className = 'hcal-day'; grid.appendChild(blank);
+    }
+    var daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    for (var day = 1; day <= daysInMonth; day++) {
+        var date = new Date(d.getFullYear(), d.getMonth(), day);
+        var el   = document.createElement('div');
+        el.className = 'hcal-day';
+        el.textContent = day;
+        if (date < today) el.classList.add('past');
+        else if (hCalIsBooked(listingId, date)) el.classList.add('booked');
+        else el.classList.add('avail');
+        if (date.toDateString() === today.toDateString()) el.classList.add('today');
+        grid.appendChild(el);
+    }
+}
+function hCalPrev(id) { hCalMonths[id].setMonth(hCalMonths[id].getMonth() - 1); hCalRender(id); }
+function hCalNext(id) { hCalMonths[id].setMonth(hCalMonths[id].getMonth() + 1); hCalRender(id); }
+
+// Init all listing calendars
+<?php foreach ($listings as $l): ?>
+hCalInit(<?php echo (int)$l['id']; ?>);
+<?php endforeach; ?>
 </script>
 </body>
 </html>
+
