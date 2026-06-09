@@ -1,0 +1,17 @@
+# ── Sensitive config — NEVER commit the real one ──
+stayhub/config.php
+
+# ── Uploaded user files ──
+stayhub/img/uploads/
+
+# ── PHP error logs ──
+*.log
+error_log
+
+# ── OS junk ──
+.DS_Store
+Thumbs.db
+
+# ── IDE folders ──
+.vscode/
+.idea/
