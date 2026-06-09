@@ -1,0 +1,759 @@
+<?php
+session_start();
+require_once 'config.php';
+
+// Only hosts can access this page
+if (!isset($_SESSION['user_id']) || empty($_SESSION['is_host'])) {
+    header('Location: become-host.php');
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+
+// Fetch all listings belonging to this host
+// Using subqueries instead of GROUP BY to avoid SQL Server column enumeration issues
+$sql_listings = "
+    SELECT
+        l.id, l.user_id, l.title, l.description, l.location,
+        l.price, l.voyageur_count, l.bed_count, l.created_at, l.status,
+        i.image_url AS main_photo,
+        (SELECT COUNT(*) FROM reservations r WHERE r.listing_id = l.id) AS total_bookings,
+        COALESCE(
+            (SELECT SUM(r2.total_price) FROM reservations r2
+             WHERE r2.listing_id = l.id AND r2.status != 'cancelled'), 0
+        ) AS total_revenue
+    FROM listings l
+    LEFT JOIN images i ON l.id = i.listing_id AND i.is_primary = 1
+    WHERE l.user_id = ?
+    ORDER BY l.created_at DESC
+";
+$stmt_listings = sqlsrv_query($conn, $sql_listings, [$user_id]);
+
+$listings = [];
+if ($stmt_listings) {
+    while ($row = sqlsrv_fetch_array($stmt_listings, SQLSRV_FETCH_ASSOC)) {
+        $listings[] = $row;
+    }
+} else {
+    // Surface SQL errors instead of silently failing
+    $errs = sqlsrv_errors();
+    error_log("my-listings.php query failed: " . print_r($errs, true));
+}
+
+// Build list of listing IDs for the rental query
+$listing_ids = array_column($listings, 'id');
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Listings | StayHub</title>
+    <meta name="description" content="Manage your StayHub properties, view rental history and control your listings.">
+    <link rel="icon" type="image/png" href="StayHubIcon.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f7f7f8;
+            color: #222;
+            min-height: 100vh;
+        }
+
+        /* ── Navbar ── */
+        .top-nav {
+            background: #fff;
+            border-bottom: 1px solid #ebebeb;
+            padding: 0 8%;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 200;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+        }
+        .nav-logo {
+            font-size: 22px;
+            font-weight: 800;
+            color: #ff385c;
+            text-decoration: none;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .nav-link {
+            font-size: 14px;
+            font-weight: 500;
+            color: #717171;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .nav-link:hover { background: #f5f5f5; color: #222; }
+        .btn-add-listing {
+            background: #ff385c;
+            color: #fff;
+            padding: 9px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            transition: background 0.2s, transform 0.15s;
+        }
+        .btn-add-listing:hover { background: #e31c5f; transform: translateY(-1px); }
+
+        /* ── Page Header ── */
+        .page-header {
+            padding: 48px 8% 28px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .page-header-text h1 {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .page-header-text p {
+            color: #717171;
+            font-size: 15px;
+            margin-top: 6px;
+        }
+
+        /* ── Stats Bar ── */
+        .stats-bar {
+            margin: 0 8% 32px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+        }
+        .stat-card {
+            background: #fff;
+            border: 1px solid #ebebeb;
+            border-radius: 16px;
+            padding: 20px 22px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .stat-icon.pink   { background: #fff0f2; color: #ff385c; }
+        .stat-icon.green  { background: #e8f8f0; color: #1a9e5a; }
+        .stat-icon.blue   { background: #e8f0ff; color: #3b6ef5; }
+        .stat-icon.orange { background: #fff4e5; color: #e07b00; }
+        .stat-value { font-size: 22px; font-weight: 700; }
+        .stat-label { font-size: 12px; color: #717171; margin-top: 2px; }
+
+        /* ── Flash alerts ── */
+        .alert {
+            margin: 0 8% 24px;
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .alert-success { background: #edfaf3; color: #14532d; border: 1px solid #bef0d1; }
+        .alert-error   { background: #fff0f0; color: #7f1d1d; border: 1px solid #f5c6cb; }
+
+        /* ── Listings ── */
+        .listings-section {
+            padding: 0 8% 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            background: #fff;
+            border-radius: 20px;
+            border: 1px solid #ebebeb;
+        }
+        .empty-state .empty-icon { font-size: 56px; margin-bottom: 20px; display: block; }
+        .empty-state h3 { font-size: 20px; margin-bottom: 8px; }
+        .empty-state p  { color: #717171; margin-bottom: 24px; }
+
+        /* ── Listing Block ── */
+        .listing-block {
+            background: #fff;
+            border: 1px solid #ebebeb;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            transition: box-shadow 0.2s;
+        }
+        .listing-block:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.09); }
+
+        /* Listing header row */
+        .listing-header {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .listing-img {
+            width: 200px;
+            min-height: 150px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .listing-info {
+            flex: 1;
+            padding: 22px 26px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .listing-title {
+            font-size: 19px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .listing-location {
+            font-size: 13px;
+            color: #717171;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .listing-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 13px;
+            color: #444;
+        }
+        .listing-meta-row span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .listing-meta-row i { color: #ff385c; }
+
+        .listing-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 10px;
+            padding: 22px 24px;
+            flex-shrink: 0;
+        }
+        .listing-revenue {
+            text-align: right;
+        }
+        .listing-revenue .amount {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a9e5a;
+        }
+        .listing-revenue .amount-label {
+            font-size: 11px;
+            color: #717171;
+            margin-top: 2px;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-edit {
+            background: #fff;
+            border: 1.5px solid #3b6ef5;
+            color: #3b6ef5;
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .btn-edit:hover { background: #3b6ef5; color: #fff; }
+        .btn-delete {
+            background: #fff;
+            border: 1.5px solid #ff385c;
+            color: #ff385c;
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-delete:hover { background: #ff385c; color: #fff; }
+
+        /* ── Bookings Table ── */
+        .bookings-section {
+            padding: 0 0 0 0;
+        }
+        .bookings-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 24px;
+            background: #fafafa;
+            border: none;
+            width: 100%;
+            text-align: left;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            color: #444;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .bookings-toggle:hover { background: #f0f0f0; }
+        .bookings-toggle .toggle-count {
+            background: #ff385c;
+            color: #fff;
+            border-radius: 20px;
+            padding: 2px 9px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .toggle-icon { margin-left: auto; transition: transform 0.3s; }
+        .bookings-toggle.open .toggle-icon { transform: rotate(180deg); }
+
+        .bookings-table-wrap {
+            display: none;
+            overflow-x: auto;
+            border-top: 1px solid #f0f0f0;
+        }
+        .bookings-table-wrap.open { display: block; }
+
+        .bookings-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .bookings-table th {
+            background: #f9f9f9;
+            padding: 12px 20px;
+            text-align: left;
+            font-weight: 600;
+            color: #555;
+            border-bottom: 1px solid #ebebeb;
+            white-space: nowrap;
+        }
+        .bookings-table td {
+            padding: 14px 20px;
+            border-bottom: 1px solid #f5f5f5;
+            vertical-align: middle;
+        }
+        .bookings-table tr:last-child td { border-bottom: none; }
+        .bookings-table tr:hover td { background: #fafafa; }
+
+        .guest-info { display: flex; flex-direction: column; }
+        .guest-name { font-weight: 600; color: #222; }
+        .guest-contact { font-size: 12px; color: #717171; margin-top: 2px; }
+
+        .nights-badge {
+            background: #f0f0f0;
+            color: #444;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .price-cell { font-weight: 700; color: #222; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .pill-confirmed  { background: #e8f8f0; color: #1a9e5a; }
+        .pill-pending    { background: #fff8e1; color: #856404; }
+        .pill-cancelled  { background: #fdecea; color: #b71c1c; }
+
+        .no-bookings {
+            text-align: center;
+            padding: 28px;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        /* ── Delete Confirm Modal ── */
+        .delete-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 9000;
+            align-items: center;
+            justify-content: center;
+        }
+        .delete-overlay.open { display: flex; }
+        .delete-modal {
+            background: #fff;
+            border-radius: 20px;
+            padding: 40px 36px;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            animation: popIn 0.25s ease;
+        }
+        @keyframes popIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+        }
+        .delete-modal .del-icon { font-size: 52px; margin-bottom: 18px; }
+        .delete-modal h3 { font-size: 21px; margin-bottom: 10px; }
+        .delete-modal p  { color: #717171; margin-bottom: 30px; font-size: 15px; line-height: 1.5; }
+        .modal-actions { display: flex; gap: 12px; justify-content: center; }
+        .btn-keep {
+            padding: 12px 28px;
+            border: 1.5px solid #ddd;
+            border-radius: 10px;
+            background: #fff;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-keep:hover { background: #f5f5f5; }
+        .btn-confirm-delete {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 10px;
+            background: #ff385c;
+            color: #fff;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-confirm-delete:hover { background: #c0112b; }
+
+        @media (max-width: 768px) {
+            .listing-header { flex-direction: column; }
+            .listing-img { width: 100%; height: 200px; }
+            .listing-actions { flex-direction: row; justify-content: space-between; align-items: center; padding: 16px 20px; }
+            .page-header { flex-direction: column; align-items: flex-start; }
+        }
+
+        @media print {
+            body.print-single .listing-block { display: none !important; }
+            body.print-single .listing-block.print-target { display: block !important; }
+            .top-nav, .btn-add-listing, .stats-bar, .action-buttons, .bookings-toggle, .alert, .delete-overlay { display: none !important; }
+            body { background: #fff; }
+            .page-header { padding-top: 0; padding-bottom: 20px; }
+            .listing-block { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; margin-bottom: 30px; }
+            .bookings-table-wrap { display: block !important; }
+            .listing-img { width: 150px; min-height: 100px; }
+            .bookings-section { page-break-inside: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="top-nav">
+    <a href="index.php" class="nav-logo">StayHub</a>
+    <div class="nav-right">
+        <a href="index.php" class="nav-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
+        <a href="host-dashboard.php" class="btn-add-listing"><i class="fas fa-plus"></i> Add New Listing</a>
+    </div>
+</nav>
+
+<?php
+// Compute totals for stats bar
+$totalListings = count($listings);
+$totalBookings = 0;
+$totalRevenue  = 0;
+$totalActive   = 0;
+foreach ($listings as $l) {
+    $totalBookings += (int)$l['total_bookings'];
+    $totalRevenue  += (float)$l['total_revenue'];
+    $totalActive++;
+}
+?>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="page-header-text">
+        <h1>My Listings</h1>
+        <p>Manage your properties, track bookings and earnings</p>
+    </div>
+    <button onclick="printAll()" class="btn-add-listing" style="background:#fff; color:#3b6ef5; border:1.5px solid #3b6ef5; align-self:center;"><i class="fas fa-print"></i> Print All Listings</button>
+</div>
+
+<!-- Stats Bar -->
+<div class="stats-bar">
+    <div class="stat-card">
+        <div class="stat-icon pink"><i class="fas fa-home"></i></div>
+        <div>
+            <div class="stat-value"><?php echo $totalListings; ?></div>
+            <div class="stat-label">Total Properties</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fas fa-calendar-check"></i></div>
+        <div>
+            <div class="stat-value"><?php echo $totalBookings; ?></div>
+            <div class="stat-label">Total Bookings</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-coins"></i></div>
+        <div>
+            <div class="stat-value"><?php echo number_format($totalRevenue, 0); ?> MAD</div>
+            <div class="stat-label">Total Revenue</div>
+        </div>
+    </div>
+</div>
+
+<!-- Flash Messages -->
+<?php if (isset($_GET['deleted']) && $_GET['deleted'] == 1): ?>
+    <div class="alert alert-success"><i class="fas fa-check-circle"></i> <strong>Listing deleted successfully.</strong></div>
+<?php endif; ?>
+<?php if (isset($_GET['updated']) && $_GET['updated'] == 1): ?>
+    <div class="alert alert-success"><i class="fas fa-check-circle"></i> <strong>Listing updated successfully.</strong></div>
+<?php endif; ?>
+
+<!-- Listings -->
+<div class="listings-section">
+    <?php if (empty($listings)): ?>
+        <div class="empty-state">
+            <span class="empty-icon">🏠</span>
+            <h3>No listings yet</h3>
+            <p>Start earning by adding your first property to StayHub.</p>
+            <a href="host-dashboard.php" class="btn-add-listing" style="display:inline-flex; margin:0 auto;">
+                <i class="fas fa-plus"></i> Add Your First Listing
+            </a>
+        </div>
+    <?php else: ?>
+        <?php foreach ($listings as $listing):
+            $listingId = $listing['id'];
+            $imgSrc = !empty($listing['main_photo']) ? $listing['main_photo'] : 'img/default-avatar.png';
+
+            // Fetch reservations for this listing
+            $sql_res = "
+                SELECT r.id, r.guest_name, r.guest_email, r.guest_phone,
+                       r.check_in, r.check_out, r.guests, r.total_price, r.status,
+                       DATEDIFF(day, r.check_in, r.check_out) AS nights
+                FROM reservations r
+                WHERE r.listing_id = ?
+                ORDER BY r.check_in DESC
+            ";
+            $stmt_res = sqlsrv_query($conn, $sql_res, [$listingId]);
+            $bookings = [];
+            if ($stmt_res) {
+                while ($b = sqlsrv_fetch_array($stmt_res, SQLSRV_FETCH_ASSOC)) {
+                    $bookings[] = $b;
+                }
+            }
+        ?>
+        <div class="listing-block" id="listing-<?php echo $listingId; ?>">
+            <!-- Listing Header -->
+            <div class="listing-header">
+                <img class="listing-img"
+                     src="<?php echo htmlspecialchars($imgSrc); ?>"
+                     alt="<?php echo htmlspecialchars($listing['title']); ?>">
+
+                <div class="listing-info">
+                    <div class="listing-title">
+                        <?php echo htmlspecialchars($listing['title']); ?>
+                        <?php if ($listing['status'] === 'pending'): ?>
+                            <span style="font-size: 11px; background: #fff8e1; color: #856404; padding: 3px 8px; border-radius: 12px; margin-left: 10px; vertical-align: middle;"><i class="fas fa-clock"></i> Pending Approval</span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="listing-location">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <?php echo htmlspecialchars($listing['location']); ?>
+                    </div>
+                    <div class="listing-meta-row">
+                        <span><i class="fas fa-tag"></i> <?php echo number_format($listing['price'], 0); ?> MAD / night</span>
+                        <span><i class="fas fa-users"></i> Up to <?php echo (int)$listing['voyageur_count']; ?> guests</span>
+                        <span><i class="fas fa-bed"></i> <?php echo (int)$listing['bed_count']; ?> bed<?php echo $listing['bed_count'] > 1 ? 's' : ''; ?></span>
+                        <span><i class="fas fa-calendar-alt"></i> <?php echo (int)$listing['total_bookings']; ?> booking<?php echo $listing['total_bookings'] != 1 ? 's' : ''; ?></span>
+                    </div>
+                </div>
+
+                <div class="listing-actions">
+                    <div class="listing-revenue">
+                        <div class="amount"><?php echo number_format($listing['total_revenue'], 0); ?> MAD</div>
+                        <div class="amount-label">total revenue</div>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-edit" onclick="printSingle(<?php echo $listingId; ?>)" style="color:#222; border-color:#ccc;">
+                            <i class="fas fa-print"></i> Print
+                        </button>
+                        <a href="edit-listing.php?id=<?php echo $listingId; ?>" class="btn-edit">
+                            <i class="fas fa-pen"></i> Edit
+                        </a>
+                        <button class="btn-delete"
+                                onclick="confirmDelete(<?php echo $listingId; ?>, '<?php echo htmlspecialchars(addslashes($listing['title'])); ?>')">
+                            <i class="fas fa-trash-alt"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bookings toggle -->
+            <div class="bookings-section">
+                <button class="bookings-toggle" onclick="toggleBookings(this)">
+                    <i class="fas fa-users"></i>
+                    Rental History
+                    <span class="toggle-count"><?php echo count($bookings); ?></span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </button>
+
+                <div class="bookings-table-wrap">
+                    <?php if (empty($bookings)): ?>
+                        <div class="no-bookings"><i class="fas fa-inbox" style="margin-right:8px;"></i>No bookings for this property yet.</div>
+                    <?php else: ?>
+                        <table class="bookings-table">
+                            <thead>
+                                <tr>
+                                    <th>Guest</th>
+                                    <th>Check-in</th>
+                                    <th>Check-out</th>
+                                    <th>Duration</th>
+                                    <th>Guests</th>
+                                    <th>Total Price</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($bookings as $b):
+                                    $checkIn  = ($b['check_in']  instanceof DateTime) ? $b['check_in']->format('d M Y')  : date('d M Y', strtotime($b['check_in']));
+                                    $checkOut = ($b['check_out'] instanceof DateTime) ? $b['check_out']->format('d M Y') : date('d M Y', strtotime($b['check_out']));
+                                    $nights   = max(1, (int)$b['nights']);
+                                    $statusClass = match($b['status']) {
+                                        'confirmed' => 'pill-confirmed',
+                                        'cancelled' => 'pill-cancelled',
+                                        default     => 'pill-pending',
+                                    };
+                                    $statusIcon = match($b['status']) {
+                                        'confirmed' => 'fa-check-circle',
+                                        'cancelled' => 'fa-times-circle',
+                                        default     => 'fa-clock',
+                                    };
+                                ?>
+                                <tr>
+                                    <td>
+                                        <div class="guest-info">
+                                            <span class="guest-name"><?php echo htmlspecialchars($b['guest_name']); ?></span>
+                                            <span class="guest-contact"><?php echo htmlspecialchars($b['guest_email']); ?></span>
+                                            <span class="guest-contact"><?php echo htmlspecialchars($b['guest_phone']); ?></span>
+                                        </div>
+                                    </td>
+                                    <td><?php echo $checkIn; ?></td>
+                                    <td><?php echo $checkOut; ?></td>
+                                    <td><span class="nights-badge"><?php echo $nights; ?> night<?php echo $nights > 1 ? 's' : ''; ?></span></td>
+                                    <td><?php echo (int)$b['guests']; ?></td>
+                                    <td class="price-cell"><?php echo number_format($b['total_price'], 0); ?> MAD</td>
+                                    <td>
+                                        <span class="status-pill <?php echo $statusClass; ?>">
+                                            <i class="fas <?php echo $statusIcon; ?>"></i>
+                                            <?php echo ucfirst($b['status']); ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="delete-overlay" id="deleteOverlay">
+    <div class="delete-modal">
+        <div class="del-icon">🗑️</div>
+        <h3>Delete this listing?</h3>
+        <p id="deleteModalText">This will permanently remove the property and all its data. This action cannot be undone.</p>
+        <div class="modal-actions">
+            <button class="btn-keep" onclick="closeDelete()">Keep it</button>
+            <a href="#" class="btn-confirm-delete" id="deleteConfirmLink"><i class="fas fa-trash-alt"></i> Yes, delete</a>
+        </div>
+    </div>
+</div>
+
+<script>
+/* Toggle booking history accordion */
+function toggleBookings(btn) {
+    const wrap = btn.nextElementSibling;
+    const isOpen = wrap.classList.contains('open');
+    wrap.classList.toggle('open', !isOpen);
+    btn.classList.toggle('open', !isOpen);
+}
+
+/* Delete modal */
+function confirmDelete(id, title) {
+    document.getElementById('deleteModalText').textContent =
+        'Are you sure you want to delete "' + title + '"? All bookings and photos will be permanently removed.';
+    document.getElementById('deleteConfirmLink').href = 'api/delete-listing.php?id=' + id;
+    document.getElementById('deleteOverlay').classList.add('open');
+}
+function closeDelete() {
+    document.getElementById('deleteOverlay').classList.remove('open');
+}
+document.getElementById('deleteOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeDelete();
+});
+
+function printAll() {
+    document.body.classList.remove('print-single');
+    window.print();
+}
+function printSingle(id) {
+    document.body.classList.add('print-single');
+    document.querySelectorAll('.listing-block').forEach(b => b.classList.remove('print-target'));
+    document.getElementById('listing-' + id).classList.add('print-target');
+    window.print();
+}
+</script>
+</body>
+</html>

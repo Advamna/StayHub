@@ -1,0 +1,180 @@
+/* ============================================
+   STAYHUB – Main Stylesheet (clean, no dupes)
+   ============================================ */
+
+/* --- 1. RESET & BASE --- */
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+body { color: #222; line-height: 1.4; background: #fff; overflow-x: hidden; }
+
+.container {
+    width: 95%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* --- 2. HEADER --- */
+.main-header {
+    border-bottom: 1px solid #ebebeb;
+    padding: 15px 0;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1000;
+}
+
+.header-container { display: flex; justify-content: space-between; align-items: center; }
+.brand-text { color: #FF5A5F; font-weight: bold; font-size: 24px; cursor: pointer; }
+
+/* --- 3. SEARCH BAR --- */
+.floating-search {
+    display: flex;
+    align-items: center;
+    border: 1px solid #DDD;
+    border-radius: 40px;
+    padding: 8px 8px 8px 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+.search-input input { border: none; outline: none; font-size: 14px; width: 220px; }
+.search-circle {
+    background: #FF5A5F; color: white; border: none;
+    width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+}
+
+/* --- 4. USER PILL & DROPDOWN --- */
+.header-right { display: flex; align-items: center; gap: 20px; }
+
+.user-pill-wrapper {
+    position: relative;
+    z-index: 1001;    /* sits above header */
+}
+
+.user-pill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 5px 8px 5px 12px;
+    border: 1px solid #DDD;
+    border-radius: 21px;
+    cursor: pointer;
+    background: white;
+}
+
+.nav-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 55px;
+    background: white;
+    min-width: 240px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    border-radius: 12px;
+    padding: 8px 0;
+    z-index: 1002;
+}
+
+.dropdown-content.show { display: block; }
+
+.dropdown-content a {
+    display: block;
+    padding: 12px 20px;
+    text-decoration: none;
+    color: #222;
+    font-size: 14px;
+}
+.dropdown-content a:hover { background: #f7f7f7; }
+.dropdown-content hr { border: none; border-top: 1px solid #eee; margin: 4px 0; }
+
+/* --- 5. LISTINGS GRID --- */
+.listings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    padding: 30px 0;
+}
+
+.listing-card { cursor: pointer; }
+
+.card-image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+.card-image img { width: 100%; height: 100%; object-fit: cover; }
+
+.card-info {}
+.info-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.info-top h4 { font-size: 15px; font-weight: 600; }
+.price { margin-top: 6px; font-size: 14px; }
+
+/* --- 6. AUTH MODALS --- */
+.modal-overlay {
+    display: none;          /* JS sets this to "flex" to open */
+    position: fixed;
+    z-index: 9999;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    padding: 32px;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 480px;
+    position: relative;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.28);
+}
+
+.close {
+    position: absolute;
+    right: 20px; top: 15px;
+    font-size: 28px;
+    cursor: pointer;
+    color: #222;
+    line-height: 1;
+}
+
+/* --- 7. FORMS --- */
+.login-form-container h2 { margin-bottom: 20px; font-size: 20px; }
+
+.input-group { margin-bottom: 14px; }
+.input-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; }
+.input-group input {
+    width: 100%; padding: 11px 14px;
+    border: 1px solid #ccc; border-radius: 8px;
+    font-size: 15px; outline: none;
+    transition: border 0.2s;
+}
+.input-group input:focus { border-color: #FF5A5F; }
+
+/* --- 8. BUTTONS --- */
+.auth-submit-btn {
+    background: #FF5A5F; color: white; border: none;
+    padding: 13px; width: 100%; border-radius: 8px;
+    font-weight: bold; font-size: 16px; cursor: pointer;
+    margin-top: 8px; transition: background 0.2s;
+}
+.auth-submit-btn:hover { background: #e34b50; }
+
+.btn-reserve {
+    background: #FF5A5F; color: white; border: none;
+    padding: 14px; width: 100%; border-radius: 8px;
+    font-weight: bold; font-size: 16px; cursor: pointer;
+    margin-top: 10px; transition: background 0.2s;
+}
+.btn-reserve:hover { background: #e34b50; }
+
+/* --- 9. MISC HOST PAGES --- */
+.main-header .btn-text {
+    text-decoration: none; color: #222; font-weight: 600;
+    padding: 8px 16px; border: 1px solid #ddd;
+    border-radius: 20px; font-size: 14px;
+}
+.main-header .btn-text:hover { background: #f7f7f7; }
