@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         <div class="input-group">
             <label for="su-email">Email</label>
-            <input type="email" id="su-email" name="email"
+            <input type="text" id="su-email" name="email"
                    required placeholder="Enter your email"
                    autocomplete="email">
             <span class="field-error" id="err-email"></span>
@@ -84,7 +84,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                    required placeholder="At least 8 characters"
                    autocomplete="new-password">
             <span class="field-error" id="err-password"></span>
-            <!-- Strength bar -->
             <div id="strength-bar-wrap" style="margin-top:6px; display:none;">
                 <div style="height:4px; border-radius:4px; background:#eee; overflow:hidden;">
                     <div id="strength-bar" style="height:100%; width:0; border-radius:4px; transition:width 0.3s, background 0.3s;"></div>
@@ -134,25 +133,53 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 
+    // ── Block digits & symbols on name fields (letters, spaces, hyphens, apostrophes only) ──
+    ['su-firstname', 'su-lastname'].forEach(function(id) {
+        document.getElementById(id).addEventListener('keydown', function(e) {
+            const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End',' ','-',"'"];
+            if (!allowed.includes(e.key) && !/^[a-zA-ZÀ-ÿ]$/.test(e.key)) {
+                e.preventDefault(); // Block digits and all other non-letter keys
+            }
+        });
+    });
+
+    // ── Block digits on email field ──
+    document.getElementById('su-email').addEventListener('keydown', function(e) {
+        const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End',
+                         '@','.','_','-','+']; // valid email punctuation
+        if (!allowed.includes(e.key) && !/^\d$/.test(e.key) === false) {
+            // It IS a digit — block it
+            e.preventDefault();
+        }
+        // Also block anything that's not a letter, allowed symbol, or control key
+        if (!/^[a-zA-Z]$/.test(e.key) && !allowed.includes(e.key) && e.key.length === 1) {
+            e.preventDefault();
+        }
+    });
+
     // ── Validators ──
     function validateName(val, label) {
         if (!val.trim()) return label + ' is required.';
         if (val.trim().length < 2) return label + ' must be at least 2 characters.';
+        if (/[0-9]/.test(val)) return label + ' must only contain letters.';
         return '';
     }
 
     function validateEmail(val) {
         if (!val.trim()) return 'Email is required.';
+        if (/[0-9]/.test(val)) return 'Email address cannot contain numbers.';
         if (!val.includes('@')) return 'Missing "@" — please enter a valid email address.';
         const parts = val.split('@');
         if (parts[0].length === 0) return 'Please enter something before the "@".';
         if (!parts[1] || !parts[1].includes('.')) return 'Missing domain — e.g. name@example.com';
+        if (parts[1].split('.').pop().length < 2) return 'Enter a valid domain ending — e.g. .com or .net';
         return '';
     }
 
     function validatePassword(val) {
         if (!val) return 'Password is required.';
         if (val.length < 8) return 'Password must be at least 8 characters (currently ' + val.length + ').';
+        if (!/[a-zA-Z]/.test(val)) return 'Password must contain at least one letter.';
         return '';
     }
 
@@ -163,9 +190,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     // ── Password strength bar ──
-    const passEl     = document.getElementById('su-password');
-    const strengthWrap = document.getElementById('strength-bar-wrap');
-    const strengthBar  = document.getElementById('strength-bar');
+    const passEl        = document.getElementById('su-password');
+    const strengthWrap  = document.getElementById('strength-bar-wrap');
+    const strengthBar   = document.getElementById('strength-bar');
     const strengthLabel = document.getElementById('strength-label');
 
     passEl.addEventListener('input', function () {
@@ -173,18 +200,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         strengthWrap.style.display = val.length ? 'block' : 'none';
 
         let score = 0;
-        if (val.length >= 8)  score++;
-        if (val.length >= 12) score++;
-        if (/[A-Z]/.test(val)) score++;
-        if (/[0-9]/.test(val)) score++;
-        if (/[^A-Za-z0-9]/.test(val)) score++;
+        if (val.length >= 8)           score++;
+        if (val.length >= 12)          score++;
+        if (/[A-Z]/.test(val))         score++;
+        if (/[0-9]/.test(val))         score++;
+        if (/[^A-Za-z0-9]/.test(val))  score++;
 
         const levels = [
-            { label: 'Too short',  color: '#ff385c', pct: '20%' },
-            { label: 'Weak',       color: '#ff385c', pct: '35%' },
-            { label: 'Fair',       color: '#ff9500', pct: '55%' },
-            { label: 'Good',       color: '#34c759', pct: '75%' },
-            { label: 'Strong',     color: '#34c759', pct: '100%' },
+            { label: 'Too short', color: '#ff385c', pct: '20%'  },
+            { label: 'Weak',      color: '#ff385c', pct: '35%'  },
+            { label: 'Fair',      color: '#ff9500', pct: '55%'  },
+            { label: 'Good',      color: '#34c759', pct: '75%'  },
+            { label: 'Strong',    color: '#34c759', pct: '100%' },
         ];
         const lvl = levels[Math.min(score, 4)];
         strengthBar.style.width      = lvl.pct;
@@ -192,19 +219,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         strengthLabel.textContent    = lvl.label;
         strengthLabel.style.color    = lvl.color;
 
-        // Also re-run error check live
         if (passEl.classList.contains('input-invalid')) {
             showError(passEl, document.getElementById('err-password'), validatePassword(val));
         }
     });
 
-    // ── Blur validation ──
+    // ── Blur + live re-validation ──
     const fields = [
         { el: 'su-firstname', err: 'err-firstname', fn: v => validateName(v, 'First name') },
-        { el: 'su-lastname',  err: 'err-lastname',  fn: v => validateName(v, 'Last name') },
-        { el: 'su-email',     err: 'err-email',     fn: v => validateEmail(v) },
-        { el: 'su-phone',     err: 'err-phone',     fn: v => validatePhone(v) },
-        { el: 'su-password',  err: 'err-password',  fn: v => validatePassword(v) },
+        { el: 'su-lastname',  err: 'err-lastname',  fn: v => validateName(v, 'Last name')  },
+        { el: 'su-email',     err: 'err-email',     fn: v => validateEmail(v)               },
+        { el: 'su-phone',     err: 'err-phone',     fn: v => validatePhone(v)               },
+        { el: 'su-password',  err: 'err-password',  fn: v => validatePassword(v)            },
     ];
 
     fields.forEach(function(f) {
