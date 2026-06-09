@@ -29,16 +29,14 @@ if (!$reservation) {
     exit;
 }
 
-// Calculate breakdown
-// Calculate breakdown
 $date1 = ($reservation['check_in'] instanceof DateTime) ? $reservation['check_in'] : new DateTime($reservation['check_in']);
 $date2 = ($reservation['check_out'] instanceof DateTime) ? $reservation['check_out'] : new DateTime($reservation['check_out']);
 $interval = $date1->diff($date2);
 $days = $interval->days > 0 ? $interval->days : 1;
 
 $total_price = $reservation['total_price'];
-$cleaning_fee = 150; // Mock cleaning fee
-$service_fee = round($total_price * 0.1); // 10% service fee
+$cleaning_fee = 150;
+$service_fee = round($total_price * 0.1);
 $base_price = $total_price - $cleaning_fee - $service_fee;
 
 $imgSrc = !empty($reservation['image_url']) ? 
@@ -70,11 +68,20 @@ $imgSrc = !empty($reservation['image_url']) ?
         
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #444; }
-        .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+        .form-group input {
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px;
+            font-size: 15px; box-sizing: border-box; transition: border-color 0.2s;
+        }
+        .form-group input:focus { outline: none; border-color: #ff385c; }
+        .form-group input.input-error { border-color: #ff385c; background: #fff5f7; }
+        .field-hint { font-size: 11px; color: #aaa; margin-top: 4px; display: none; }
+        .field-hint.visible { display: block; color: #ff385c; }
+
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         
         .btn-pay { width: 100%; background: #ff385c; color: white; padding: 14px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 15px; transition: 0.2s; }
         .btn-pay:hover { background: #e31c5f; }
+        .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
         
         .summary-img { width: 100%; height: 200px; object-fit: cover; border-radius: 12px; margin-bottom: 15px; }
         .summary-title { font-size: 18px; font-weight: 600; margin: 0 0 5px; }
@@ -99,27 +106,58 @@ $imgSrc = !empty($reservation['image_url']) ?
         <p style="color: #717171; font-size: 14px; margin-top: -15px; margin-bottom: 20px;">
             <i class="fas fa-lock"></i> All transactions are secure and encrypted. (Mock Payment)
         </p>
-        <form action="api/process-payment.php" method="POST">
-            <input type="hidden" name="reservation_id" value="<?php echo $reservation_id; ?>">
+        <form action="api/process-payment.php" method="POST" id="payment-form">
+            <input type="hidden" name="reservation_id" value="<?php echo (int)$reservation_id; ?>">
+
+            <!-- Name on Card — letters only -->
             <div class="form-group">
                 <label>Name on Card</label>
-                <input type="text" name="card_name" placeholder="John Doe" required>
+                <input type="text" id="card_name" name="card_name"
+                       placeholder="John Doe" required autocomplete="cc-name">
+                <span class="field-hint" id="hint-name">Only letters and spaces allowed.</span>
             </div>
+
+            <!-- Card Number — digits only, 16 digits, formatted as 0000 0000 0000 0000 -->
             <div class="form-group">
                 <label>Card Number</label>
-                <input type="text" name="card_number" placeholder="0000 0000 0000 0000" maxlength="19" required>
+                <input type="text" id="card_number" name="card_number"
+                       placeholder="0000 0000 0000 0000"
+                       maxlength="19"
+                       inputmode="numeric"
+                       autocomplete="cc-number"
+                       required>
+                <span class="field-hint" id="hint-card">Must be exactly 16 digits.</span>
             </div>
+
             <div class="form-row">
+                <!-- Expiry — MM/YY format, auto-slash -->
                 <div class="form-group">
                     <label>Expiration Date</label>
-                    <input type="text" name="card_exp" placeholder="MM/YY" maxlength="5" required>
+                    <input type="text" id="card_exp" name="card_exp"
+                           placeholder="MM/YY"
+                           maxlength="5"
+                           inputmode="numeric"
+                           autocomplete="cc-exp"
+                           required>
+                    <span class="field-hint" id="hint-exp">Must be in MM/YY format.</span>
                 </div>
+
+                <!-- CVV — digits only, exactly 3 -->
                 <div class="form-group">
                     <label>CVV</label>
-                    <input type="text" name="card_cvv" placeholder="123" maxlength="3" required>
+                    <input type="text" id="card_cvv" name="card_cvv"
+                           placeholder="123"
+                           maxlength="3"
+                           inputmode="numeric"
+                           autocomplete="cc-csc"
+                           required>
+                    <span class="field-hint" id="hint-cvv">Must be exactly 3 digits.</span>
                 </div>
             </div>
-            <button type="submit" class="btn-pay">Pay <?php echo number_format($total_price, 0); ?> MAD</button>
+
+            <button type="submit" class="btn-pay" id="pay-btn">
+                Pay <?php echo number_format($total_price, 0); ?> MAD
+            </button>
         </form>
     </div>
 
@@ -153,6 +191,113 @@ $imgSrc = !empty($reservation['image_url']) ?
         </div>
     </div>
 </div>
+
+<script>
+// ── Card Number: digits only, auto-space every 4, exactly 16 digits ──
+const cardInput = document.getElementById('card_number');
+cardInput.addEventListener('keydown', function(e) {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End'];
+    if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) {
+        e.preventDefault(); // Block anything that isn't a digit or control key
+    }
+});
+cardInput.addEventListener('input', function() {
+    // Strip non-digits, cap at 16 digits, insert spaces every 4
+    let digits = this.value.replace(/\D/g, '').slice(0, 16);
+    this.value = digits.replace(/(.{4})/g, '$1 ').trim();
+});
+cardInput.addEventListener('blur', function() {
+    const digits = this.value.replace(/\D/g, '');
+    const hint   = document.getElementById('hint-card');
+    if (digits.length !== 16) {
+        this.classList.add('input-error');
+        hint.classList.add('visible');
+    } else {
+        this.classList.remove('input-error');
+        hint.classList.remove('visible');
+    }
+});
+
+// ── CVV: digits only, exactly 3 ──
+const cvvInput = document.getElementById('card_cvv');
+cvvInput.addEventListener('keydown', function(e) {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
+    if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) {
+        e.preventDefault();
+    }
+});
+cvvInput.addEventListener('input', function() {
+    this.value = this.value.replace(/\D/g, '').slice(0, 3);
+});
+cvvInput.addEventListener('blur', function() {
+    const hint = document.getElementById('hint-cvv');
+    if (this.value.length !== 3) {
+        this.classList.add('input-error');
+        hint.classList.add('visible');
+    } else {
+        this.classList.remove('input-error');
+        hint.classList.remove('visible');
+    }
+});
+
+// ── Expiry: digits only, auto-insert slash after MM, format MM/YY ──
+const expInput = document.getElementById('card_exp');
+expInput.addEventListener('keydown', function(e) {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
+    if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) {
+        e.preventDefault();
+    }
+});
+expInput.addEventListener('input', function(e) {
+    let digits = this.value.replace(/\D/g, '').slice(0, 4);
+    if (digits.length >= 3) {
+        this.value = digits.slice(0, 2) + '/' + digits.slice(2);
+    } else if (digits.length === 2 && this.value.length === 2) {
+        // Auto-insert slash when user finishes typing month
+        this.value = digits + '/';
+    } else {
+        this.value = digits;
+    }
+});
+expInput.addEventListener('blur', function() {
+    const hint  = document.getElementById('hint-exp');
+    const parts = this.value.split('/');
+    const valid = parts.length === 2 && parts[0].length === 2 && parts[1].length === 2
+                  && parseInt(parts[0]) >= 1 && parseInt(parts[0]) <= 12;
+    if (!valid) {
+        this.classList.add('input-error');
+        hint.classList.add('visible');
+    } else {
+        this.classList.remove('input-error');
+        hint.classList.remove('visible');
+    }
+});
+
+// ── Name on Card: letters and spaces only ──
+const nameInput = document.getElementById('card_name');
+nameInput.addEventListener('keydown', function(e) {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End',' '];
+    if (!allowed.includes(e.key) && !/^[a-zA-Z]$/.test(e.key)) {
+        e.preventDefault();
+    }
+});
+
+// ── Form submit: final validation before allowing POST ──
+document.getElementById('payment-form').addEventListener('submit', function(e) {
+    const cardDigits = cardInput.value.replace(/\D/g, '');
+    const cvv        = cvvInput.value;
+    const expParts   = expInput.value.split('/');
+    const expValid   = expParts.length === 2 && expParts[0].length === 2 && expParts[1].length === 2
+                       && parseInt(expParts[0]) >= 1 && parseInt(expParts[0]) <= 12;
+
+    if (cardDigits.length !== 16 || cvv.length !== 3 || !expValid) {
+        e.preventDefault();
+        if (cardDigits.length !== 16) { cardInput.classList.add('input-error'); document.getElementById('hint-card').classList.add('visible'); }
+        if (cvv.length !== 3)         { cvvInput.classList.add('input-error');  document.getElementById('hint-cvv').classList.add('visible'); }
+        if (!expValid)                { expInput.classList.add('input-error');  document.getElementById('hint-exp').classList.add('visible'); }
+    }
+});
+</script>
 
 </body>
 </html>
