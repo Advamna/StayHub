@@ -44,7 +44,7 @@ $current_page = max(1, (int)($_GET['page'] ?? 1));
 $offset       = ($current_page - 1) * $per_page;
 
 // Build WHERE clauses
-$where  = "WHERE l.status = 'active'";
+$where  = "WHERE (l.status = 'active' OR l.status IS NULL)";
 $params = [];
 
 if (!empty($search)) {
@@ -86,7 +86,7 @@ $total_pages = max(1, ceil($totalRows / $per_page));
 
 // Main listing query with pagination (SQL Server 2012+ OFFSET/FETCH)
 $sql = "SELECT l.id, u.name AS Host, l.title, l.location, l.price,
-               l.rating, l.reviews, l.voyageur_count,
+               l.rating, l.reviews, l.voyageur_count, l.bedrooms, l.bathrooms, l.bed_count,
                i.image_url AS MainPhoto
         FROM listings l
         JOIN users u ON l.user_id = u.id
@@ -363,6 +363,11 @@ $filter_qs = http_build_query(array_filter([
                     </div>
                     <p style="color:#717171;font-size:13px;">Host: <?php echo htmlspecialchars($listing['Host']); ?></p>
                     <p class="price"><b><?php echo number_format($listing['price']); ?> MAD</b> / night</p>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#717171;">
+                        <span><i class="fas fa-users"></i> <?php echo (int)$listing['voyageur_count']; ?> guests</span>
+                        <span><i class="fas fa-door-open"></i> <?php echo (int)($listing['bedrooms'] ?? 1); ?> bed<?php echo ($listing['bedrooms'] ?? 1) != 1 ? 'rooms' : 'room'; ?></span>
+                        <span><i class="fas fa-bath"></i> <?php echo (int)($listing['bathrooms'] ?? 1); ?> bath<?php echo ($listing['bathrooms'] ?? 1) != 1 ? 's' : ''; ?></span>
+                    </div>
                 </div>
             </div>
         <?php endwhile; endif; ?>
