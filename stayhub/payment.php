@@ -39,9 +39,10 @@ $cleaning_fee = 150;
 $service_fee = round($total_price * 0.1);
 $base_price = $total_price - $cleaning_fee - $service_fee;
 
-$imgSrc = !empty($reservation['image_url']) ? 
-    (strpos($reservation['image_url'], 'http') === 0 ? $reservation['image_url'] : 'uploads/' . $reservation['image_url']) 
-    : 'img/placeholder.jpg';
+// DB stores 'img/uploads/filename' — use directly, no prepend needed
+$imgSrc = !empty($reservation['image_url'])
+        ? (strpos($reservation['image_url'], 'http') === 0 ? $reservation['image_url'] : $reservation['image_url'])
+        : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=60';
 ?>
 <!DOCTYPE html>
 <html lang="en">
