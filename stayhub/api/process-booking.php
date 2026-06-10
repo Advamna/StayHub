@@ -17,8 +17,10 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // ── CSRF check ──
-if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== ($_SESSION['csrf_token'] ?? '')) {
-    error_log('StayHub CSRF mismatch on process-booking');
+$postCsrf = $_POST['csrf_token'] ?? '';
+$sessCsrf = $_SESSION['csrf_token'] ?? '';
+if ($sessCsrf && $postCsrf !== $sessCsrf) {
+    error_log('StayHub CSRF mismatch on process-booking — post:' . $postCsrf . ' sess:' . $sessCsrf);
     header("Location: ../listing.php?id=$listing_id&error=csrf");
     exit;
 }
@@ -163,5 +165,5 @@ if ($hostIdStmt && $hRow = sqlsrv_fetch_array($hostIdStmt, SQLSRV_FETCH_ASSOC)) 
     sqlsrv_query($conn, $notifSql, [(int)$hRow['user_id'], 'New Booking', $notifMsg]);
 }
 
-header("Location: ../my-rentals.php?success=booked");
+header("Location: ../payment.php?reservation_id=" . $resId);
 exit;
