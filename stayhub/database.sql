@@ -87,6 +87,46 @@ CREATE TABLE IF NOT EXISTS invoices (
     FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE
 );
 
+
+-- ── listings.status column (active/inactive) ──────────────────────
+-- (Add this if you already ran database.sql without it)
+-- ALTER TABLE listings ADD status VARCHAR(20) DEFAULT 'active';
+
+CREATE TABLE IF NOT EXISTS reviews (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    listing_id      INT NOT NULL,
+    user_id         INT NOT NULL,
+    reservation_id  INT NOT NULL,
+    rating          TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment         TEXT,
+    host_reply      TEXT,
+    host_replied_at DATETIME,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (listing_id)     REFERENCES listings(id)     ON DELETE CASCADE,
+    FOREIGN KEY (user_id)        REFERENCES users(id)        ON DELETE NO ACTION,
+    FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE NO ACTION
+);
+
+CREATE TABLE IF NOT EXISTS wishlists (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT NOT NULL,
+    listing_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE CASCADE,
+    FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_wishlist (user_id, listing_id)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT NOT NULL,
+    title      VARCHAR(200),
+    message    TEXT NOT NULL,
+    is_read    TINYINT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 INSERT INTO users (name, email, phone, password, is_host) VALUES
 ('Ahmed Bennani', 'ahmed@example.com', '+212612345678', '\\\.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 1),
 ('Fatima Zahra', 'fatima@example.com', '+212623456789', '\\\.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 1);
