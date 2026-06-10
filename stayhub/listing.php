@@ -95,6 +95,7 @@ if (isset($_SESSION['user_id'])) {
 <head>
     <title><?php echo $title; ?> | StayHub</title>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="StayHubIcon.png">
     <link rel="stylesheet" href="style.css">
@@ -415,6 +416,21 @@ if (isset($_SESSION['user_id'])) {
 </div>
 
 <script>
+// ── Gallery image fallback ───────────────────────────────────
+(function() {
+    var bg = document.querySelector('.gallery-grid');
+    if (bg) {
+        var url = bg.style.backgroundImage.replace(/url\(['"]?|['"]?\)/g,'');
+        if (url && !url.startsWith('https://images.unsplash')) {
+            var img = new Image();
+            img.onerror = function() {
+                bg.style.backgroundImage = "url('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200')";
+            };
+            img.src = url;
+        }
+    }
+})();
+
 // ── Booking modal ──────────────────────────────────────────
 var openBtn  = document.getElementById('openModal');
 var resModal = document.getElementById('resModal');
@@ -482,6 +498,8 @@ function toggleWish(listingId) {
     var btn = document.getElementById('wishBtn');
     var fd  = new FormData();
     fd.append('listing_id', listingId);
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta) fd.append('csrf_token', csrfMeta.content);
     fetch('api/toggle-wishlist.php', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(data => {
