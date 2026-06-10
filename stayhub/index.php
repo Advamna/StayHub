@@ -468,16 +468,20 @@ function toggleWish(e, btn, listingId) {
     e.stopPropagation();
     const fd = new FormData();
     fd.append('listing_id', listingId);
+    // CSRF token from meta tag
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta && csrfMeta.content) fd.append('csrf_token', csrfMeta.content);
     fetch('api/toggle-wishlist.php', { method: 'POST', body: fd })
         .then(r => r.json())
-        .then(data => {
-            if (data.redirect) { openLogin(); return; }
+        .then(function(data) {
+            if (data.redirect || data.message === 'Login required') { openLogin(); return; }
             if (data.success) {
                 btn.classList.toggle('saved', data.saved);
+                btn.querySelector('i').style.color = data.saved ? '#ff385c' : '';
                 btn.title = data.saved ? 'Remove from saved' : 'Save listing';
             }
         })
-        .catch(() => {});
+        .catch(function() {});
 }
 </script>
 </body>
