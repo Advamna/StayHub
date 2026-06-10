@@ -33,7 +33,10 @@ if ($stmt) {
     <link rel="icon" type="image/png" href="StayHubIcon.png">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"></noscript>
     <style>
         body { font-family: 'Inter', sans-serif; background: #f7f7f8; margin: 0; color: #222; }
         .top-nav { background: #fff; border-bottom: 1px solid #ebebeb; padding: 0 8%; height: 70px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
@@ -92,7 +95,8 @@ if ($stmt) {
         <div class="listing-card" onclick="window.location.href='listing.php?id=<?php echo $l['id']; ?>'">
             <img class="card-img"
                  src="<?php echo !empty($l['MainPhoto']) ? htmlspecialchars($l['MainPhoto']) : 'img/placeholder.jpg'; ?>"
-                 alt="<?php echo htmlspecialchars($l['title']); ?>" loading="lazy">
+                 alt="<?php echo htmlspecialchars($l['title']); ?>" loading="lazy"
+                 onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=60'">
             <div class="card-body">
                 <h4 class="card-title"><?php echo htmlspecialchars($l['title']); ?></h4>
                 <p class="card-loc"><i class="fas fa-map-marker-alt" style="color:#ff385c;"></i> <?php echo htmlspecialchars($l['location']); ?></p>
