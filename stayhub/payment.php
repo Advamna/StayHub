@@ -52,9 +52,13 @@ $imgSrc = !empty($reservation['image_url']) ?
     <link rel="icon" type="image/png" href="StayHubIcon.png">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f7f7f8; margin: 0; color: #222; }
+        body { font-family: 'Inter', sans-serif; background: #f7f7f8; margin: 0; color: #222; opacity: 1; transition: opacity 0.1s; }
         .stays-nav { background: #fff; border-bottom: 1px solid #ebebeb; padding: 16px 8%; display: flex; justify-content: space-between; align-items: center; }
         .stays-logo { font-size: 22px; font-weight: 700; color: #ff385c; text-decoration: none; }
         .back-link { font-size: 14px; color: #717171; text-decoration: none; display: flex; align-items: center; gap: 6px; }
@@ -162,7 +166,8 @@ $imgSrc = !empty($reservation['image_url']) ?
     </div>
 
     <div class="checkout-box">
-        <img src="<?php echo htmlspecialchars($imgSrc); ?>" class="summary-img" alt="Listing">
+        <img src="<?php echo htmlspecialchars($imgSrc); ?>" class="summary-img" alt="Listing"
+     onerror="this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=60'">
         <h3 class="summary-title"><?php echo htmlspecialchars($reservation['title']); ?></h3>
         <p class="summary-location"><?php echo htmlspecialchars($reservation['location']); ?></p>
         
@@ -282,7 +287,7 @@ nameInput.addEventListener('keydown', function(e) {
     }
 });
 
-// ── Form submit: final validation before allowing POST ──
+// ── Form submit: final validation + loading state ──
 document.getElementById('payment-form').addEventListener('submit', function(e) {
     const cardDigits = cardInput.value.replace(/\D/g, '');
     const cvv        = cvvInput.value;
@@ -295,9 +300,21 @@ document.getElementById('payment-form').addEventListener('submit', function(e) {
         if (cardDigits.length !== 16) { cardInput.classList.add('input-error'); document.getElementById('hint-card').classList.add('visible'); }
         if (cvv.length !== 3)         { cvvInput.classList.add('input-error');  document.getElementById('hint-cvv').classList.add('visible'); }
         if (!expValid)                { expInput.classList.add('input-error');  document.getElementById('hint-exp').classList.add('visible'); }
+        return;
     }
+    // All valid — show loading state immediately so it feels instant
+    const payBtn = document.getElementById('pay-btn');
+    payBtn.disabled = true;
+    payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing…';
+    payBtn.style.opacity = '0.85';
+});
+
+// Show page content immediately (avoid flash of unstyled content)
+document.addEventListener('DOMContentLoaded', function() {
+    document.body.style.opacity = '1';
 });
 </script>
 
 </body>
 </html>
+
