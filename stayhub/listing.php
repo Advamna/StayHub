@@ -337,7 +337,12 @@ if (isset($_SESSION['user_id'])) {
         <!-- Left column -->
         <div class="details">
             <h3>Entire home hosted by <?php echo htmlspecialchars($listing['HostName']); ?></h3>
-            <p style="color:#717171;"><?php echo $guests; ?> guests · <?php echo $beds; ?> beds</p>
+            <p style="color:#717171;display:flex;flex-wrap:wrap;gap:16px;font-size:15px;margin:6px 0 0;">
+                <span><i class="fas fa-users" style="color:#ff385c;margin-right:5px;"></i><?php echo (int)$listing['voyageur_count'] ?: $guests; ?> guests</span>
+                <span><i class="fas fa-door-open" style="color:#ff385c;margin-right:5px;"></i><?php echo (int)($listing['bedrooms'] ?? 1); ?> bedroom<?php echo ($listing['bedrooms'] ?? 1) > 1 ? 's' : ''; ?></span>
+                <span><i class="fas fa-bed" style="color:#ff385c;margin-right:5px;"></i><?php echo (int)($listing['bed_count'] ?? $beds); ?> bed<?php echo ($listing['bed_count'] ?? $beds) > 1 ? 's' : ''; ?></span>
+                <span><i class="fas fa-bath" style="color:#ff385c;margin-right:5px;"></i><?php echo (int)($listing['bathrooms'] ?? 1); ?> bathroom<?php echo ($listing['bathrooms'] ?? 1) > 1 ? 's' : ''; ?></span>
+            </p>
             <hr class="divider">
 
             <h4 style="font-size:20px;">About this space</h4>
@@ -351,6 +356,20 @@ if (isset($_SESSION['user_id'])) {
                 <?php endforeach; ?>
             </div>
             <hr class="divider">
+
+            <!-- ── Report listing ── -->
+            <?php if (isset($_SESSION['user_id']) && $_SESSION['user_id'] !== $listing['HostId']): ?>
+            <div style="margin-bottom:20px;">
+                <?php if (!empty($listing['is_flagged'])): ?>
+                    <span style="font-size:13px;color:#aaa;"><i class="fas fa-flag"></i> This listing has been reported and is under review.</span>
+                <?php else: ?>
+                    <button onclick="reportListing(<?php echo $id; ?>)" id="reportBtn"
+                        style="background:none;border:none;color:#717171;font-size:13px;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px;text-decoration:underline;">
+                        <i class="fas fa-flag"></i> Report this listing
+                    </button>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
 
             <!-- ── Feature 11: Availability Calendar ── -->
             <div class="avail-calendar">
@@ -670,6 +689,26 @@ function openLogin() {
     document.getElementById('authModal').style.display = 'flex';
 }
 function closeAuthModal() { document.getElementById('authModal').style.display = 'none'; }
+
+// ── Report listing ────────────────────────────────────────
+function reportListing(listingId) {
+    if (!confirm('Report this listing as inappropriate or inaccurate?')) return;
+    var fd = new FormData();
+    fd.append('listing_id', listingId);
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta) fd.append('csrf_token', csrfMeta.content);
+    fetch('api/flag-listing.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(function(d) {
+            var btn = document.getElementById('reportBtn');
+            if (d.success) {
+                btn.outerHTML = '<span style="font-size:13px;color:#aaa;"><i class=\'fas fa-flag\'></i> Reported — our team will review this listing.</span>';
+            } else {
+                alert(d.message || 'Could not submit report. Please try again.');
+            }
+        })
+        .catch(function() { alert('Network error. Please try again.'); });
+}
 
 // ── Star picker (review form) ─────────────────────────────
 var stars = document.querySelectorAll('#starPicker i');
