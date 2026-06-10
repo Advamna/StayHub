@@ -113,11 +113,112 @@ if (isset($_SESSION['user_id'])) {
         .amenity-tag { display:inline-block; background:#f7f7f7; padding:8px 15px; border-radius:20px; margin:5px; font-size:14px; }
         hr.divider { border:0; border-top:1px solid #eee; margin:30px 0; }
 
-        /* Booking modal */
-        .modal { display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); }
+        /* ── Booking modal ───────────────────────────── */
+        .modal {
+            display: none; position: fixed; z-index: 9999;
+            inset: 0; background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(3px);
+            overflow-y: auto;
+        }
+        .modal-dialog {
+            background: #fff;
+            margin: 40px auto 40px;
+            width: 92%; max-width: 480px;
+            border-radius: 20px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+            position: relative;
+            overflow: hidden;
+        }
+        .modal-header {
+            padding: 22px 28px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .modal-header h3 {
+            margin: 0; font-size: 20px; font-weight: 700; color: #222;
+        }
+        .modal-header .modal-price-tag {
+            font-size: 13px; color: #717171; font-weight: 400; margin-top: 2px;
+        }
+        .modal-close-btn {
+            width: 34px; height: 34px; border-radius: 50%; border: none;
+            background: #f5f5f5; cursor: pointer; font-size: 18px; color: #555;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+        }
+        .modal-close-btn:hover { background: #ebebeb; color: #222; }
+        .modal-body { padding: 24px 28px 28px; }
+        .field-group { margin-bottom: 16px; }
+        .field-group label {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; font-weight: 600; color: #555;
+            letter-spacing: 0.5px; text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .field-group label i { color: #ff385c; font-size: 11px; }
+        .field-group input,
+        .field-group select {
+            width: 100%; padding: 11px 14px;
+            border: 1.5px solid #e0e0e0; border-radius: 10px;
+            box-sizing: border-box; font-size: 14px; color: #222;
+            background: #fff; transition: border-color 0.2s, box-shadow 0.2s;
+            font-family: 'Inter', sans-serif;
+            appearance: none; -webkit-appearance: none;
+        }
+        .field-group select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 14px center;
+            padding-right: 36px;
+        }
+        .field-group input:focus,
+        .field-group select:focus {
+            outline: none; border-color: #ff385c;
+            box-shadow: 0 0 0 3px rgba(255,56,92,0.1);
+        }
+        .field-group input::placeholder { color: #aaa; }
+        .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .modal-divider { border: none; border-top: 1px solid #f0f0f0; margin: 18px 0; }
+        /* Price preview */
+        .price-preview-box {
+            background: linear-gradient(135deg, #fff5f7 0%, #fff 100%);
+            border: 1.5px solid #ffd0d9;
+            border-radius: 12px; padding: 14px 16px;
+            margin-bottom: 18px; display: none;
+        }
+        .price-preview-box .pp-row {
+            display: flex; justify-content: space-between;
+            font-size: 13px; color: #555; margin-bottom: 6px;
+        }
+        .price-preview-box .pp-total {
+            display: flex; justify-content: space-between;
+            font-size: 15px; font-weight: 700; color: #222;
+            border-top: 1px solid #ffd0d9; padding-top: 10px; margin-top: 6px;
+        }
+        /* Submit button */
+        .btn-confirm-reserve {
+            width: 100%; padding: 15px;
+            background: linear-gradient(135deg, #ff385c 0%, #e31c5f 100%);
+            color: #fff; border: none; border-radius: 12px;
+            font-size: 15px; font-weight: 700; cursor: pointer;
+            letter-spacing: 0.3px;
+            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 4px 14px rgba(255,56,92,0.35);
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-confirm-reserve:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(255,56,92,0.45);
+        }
+        .btn-confirm-reserve:active { transform: translateY(0); }
+        .btn-confirm-reserve:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        .modal-footer-note {
+            text-align: center; margin-top: 12px;
+            font-size: 12px; color: #aaa;
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+        }
+        /* Keep old .close / .modal-content for auth modal compatibility */
         .modal-content { background:#fff; margin:5% auto; padding:30px; width:90%; max-width:470px; border-radius:15px; position:relative; z-index:10001; }
         .close { position:absolute; right:20px; top:15px; cursor:pointer; font-size:28px; font-weight:bold; color:#333; z-index:10002; }
-        .modal-content input, .modal-content select { width:100%; padding:12px; margin:8px 0; border:1px solid #ddd; border-radius:8px; box-sizing:border-box; font-size:14px; }
 
         /* ── Feature 11: Availability calendar ── */
         .avail-calendar { margin-top: 20px; }
@@ -373,36 +474,105 @@ if (isset($_SESSION['user_id'])) {
     </div>
 </div>
 
-<!-- Booking Modal -->
+<!-- ── Booking Modal ── -->
 <?php if (isset($_SESSION['user_id'])): ?>
 <div id="resModal" class="modal" onclick="if(event.target===this)closeResModal()">
-    <div class="modal-content">
-        <span class="close" id="closeModal" onclick="closeResModal()">&times;</span>
-        <h3 style="margin-top:0;">Reserve your stay</h3>
-        <form action="api/process-booking.php" method="POST">
-            <input type="hidden" name="csrf_token"  value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
-            <input type="hidden" name="listing_id"  value="<?php echo $id; ?>">
-            <input type="text"  name="guest_name"   placeholder="Full Name"     required>
-            <input type="email" name="guest_email"  placeholder="Email"         required>
-            <input type="text"  name="guest_phone"  placeholder="Phone Number"  required>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div>
-                    <label style="font-size:12px;color:#717171;">Check-in</label>
-                    <input type="date" name="check_in"  id="checkInField"  required min="<?php echo date('Y-m-d'); ?>">
-                </div>
-                <div>
-                    <label style="font-size:12px;color:#717171;">Check-out</label>
-                    <input type="date" name="check_out" id="checkOutField" required min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>">
+    <div class="modal-dialog">
+
+        <!-- Header -->
+        <div class="modal-header">
+            <div>
+                <h3>Reserve your stay</h3>
+                <div class="modal-price-tag">
+                    <i class="fas fa-map-marker-alt" style="color:#ff385c;"></i>
+                    <?php echo htmlspecialchars($location); ?>
                 </div>
             </div>
-            <select name="guests">
-                <?php for ($g = 1; $g <= max(1, $guests); $g++): ?>
-                    <option value="<?php echo $g; ?>"><?php echo $g; ?> Guest<?php echo $g > 1 ? 's' : ''; ?></option>
-                <?php endfor; ?>
-            </select>
-            <div id="pricePreview" style="background:#f9f9f9;border-radius:8px;padding:12px;margin:10px 0;font-size:14px;display:none;"></div>
-            <button type="submit" class="btn-reserve" style="margin-top:12px;">Confirm Reservation</button>
-        </form>
+            <button class="modal-close-btn" onclick="closeResModal()" aria-label="Close">&#x2715;</button>
+        </div>
+
+        <!-- Body -->
+        <div class="modal-body">
+            <form action="api/process-booking.php" method="POST" id="reserveForm">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                <input type="hidden" name="listing_id" value="<?php echo $id; ?>">
+
+                <!-- Guest name -->
+                <div class="field-group">
+                    <label><i class="fas fa-user"></i> Full name</label>
+                    <input type="text" name="guest_name" placeholder="John Doe" required autocomplete="name">
+                </div>
+
+                <!-- Email -->
+                <div class="field-group">
+                    <label><i class="fas fa-envelope"></i> Email address</label>
+                    <input type="email" name="guest_email" placeholder="you@example.com" required autocomplete="email">
+                </div>
+
+                <!-- Phone -->
+                <div class="field-group">
+                    <label><i class="fas fa-phone"></i> Phone number</label>
+                    <input type="tel" name="guest_phone" placeholder="+212 6 00 00 00 00" required autocomplete="tel">
+                </div>
+
+                <hr class="modal-divider">
+
+                <!-- Dates -->
+                <div class="date-row">
+                    <div class="field-group">
+                        <label><i class="fas fa-calendar-check"></i> Check-in</label>
+                        <input type="date" name="check_in" id="checkInField"
+                               required min="<?php echo date('Y-m-d'); ?>">
+                    </div>
+                    <div class="field-group">
+                        <label><i class="fas fa-calendar-times"></i> Check-out</label>
+                        <input type="date" name="check_out" id="checkOutField"
+                               required min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>">
+                    </div>
+                </div>
+
+                <!-- Guests -->
+                <div class="field-group">
+                    <label><i class="fas fa-users"></i> Guests</label>
+                    <select name="guests" id="guestsField">
+                        <?php for ($g = 1; $g <= max(1, $guests); $g++): ?>
+                            <option value="<?php echo $g; ?>"><?php echo $g; ?> Guest<?php echo $g > 1 ? 's' : ''; ?></option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
+
+                <!-- Live price preview -->
+                <div class="price-preview-box" id="pricePreview">
+                    <div class="pp-row">
+                        <span id="ppNights">— nights</span>
+                        <span id="ppBase">— MAD</span>
+                    </div>
+                    <div class="pp-row">
+                        <span>Cleaning fee</span>
+                        <span>150 MAD</span>
+                    </div>
+                    <div class="pp-row">
+                        <span>Service fee (10%)</span>
+                        <span id="ppService">— MAD</span>
+                    </div>
+                    <div class="pp-total">
+                        <span>Total</span>
+                        <span id="ppTotal">— MAD</span>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" class="btn-confirm-reserve" id="reserveSubmitBtn">
+                    <i class="fas fa-lock"></i>
+                    Confirm Reservation
+                </button>
+
+                <p class="modal-footer-note">
+                    <i class="fas fa-shield-alt"></i>
+                    You won't be charged yet — payment is done on the next step
+                </p>
+            </form>
+        </div>
     </div>
 </div>
 <?php endif; ?>
@@ -432,29 +602,61 @@ if (isset($_SESSION['user_id'])) {
 })();
 
 // ── Booking modal ──────────────────────────────────────────
+var NIGHTLY_PRICE = <?php echo (int)$price; ?>;
 var openBtn  = document.getElementById('openModal');
 var resModal = document.getElementById('resModal');
-if (openBtn) openBtn.addEventListener('click', function() { resModal.style.display = 'flex'; });
-function closeResModal() { if(resModal) resModal.style.display = 'none'; }
 
-// Price preview
+if (openBtn) openBtn.addEventListener('click', function() {
+    resModal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+});
+function closeResModal() {
+    if (resModal) resModal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// Live price preview with breakdown
 var checkIn  = document.getElementById('checkInField');
 var checkOut = document.getElementById('checkOutField');
-var price    = <?php echo (float)$listing['price']; ?>;
+
 function updatePreview() {
-    var preview = document.getElementById('pricePreview');
-    if (!checkIn || !checkOut || !checkIn.value || !checkOut.value) { preview.style.display='none'; return; }
-    var d1 = new Date(checkIn.value), d2 = new Date(checkOut.value);
-    var days = Math.round((d2 - d1) / 86400000);
-    if (days < 1) { preview.style.display='none'; return; }
-    var total = days * price;
-    preview.style.display = 'block';
-    preview.innerHTML = days + ' night' + (days>1?'s':'') + ' × ' + price.toLocaleString() + ' MAD = <strong>' + total.toLocaleString() + ' MAD</strong>';
-    // Ensure checkout is after checkin
-    checkOut.min = checkIn.value;
+    var box = document.getElementById('pricePreview');
+    if (!checkIn || !checkOut || !checkIn.value || !checkOut.value) { box.style.display = 'none'; return; }
+    var d1     = new Date(checkIn.value), d2 = new Date(checkOut.value);
+    var nights = Math.round((d2 - d1) / 86400000);
+    if (nights < 1) { box.style.display = 'none'; return; }
+    var base    = NIGHTLY_PRICE * nights;
+    var clean   = 150;
+    var service = Math.round(base * 0.1);
+    var total   = base + clean + service;
+    document.getElementById('ppNights').textContent  = nights + ' night' + (nights > 1 ? 's' : '') + ' × ' + NIGHTLY_PRICE.toLocaleString() + ' MAD';
+    document.getElementById('ppBase').textContent    = base.toLocaleString() + ' MAD';
+    document.getElementById('ppService').textContent = service.toLocaleString() + ' MAD';
+    document.getElementById('ppTotal').textContent   = total.toLocaleString() + ' MAD';
+    box.style.display = 'block';
+    // enforce checkout min
+    var nextDay = new Date(checkIn.value);
+    nextDay.setDate(nextDay.getDate() + 1);
+    checkOut.min = nextDay.toISOString().split('T')[0];
 }
-if (checkIn)  checkIn.addEventListener('change',  updatePreview);
+
+if (checkIn)  checkIn.addEventListener('change', function() {
+    if (checkOut.value && checkOut.value <= this.value) checkOut.value = '';
+    updatePreview();
+});
 if (checkOut) checkOut.addEventListener('change', updatePreview);
+
+// Submit loading state
+var reserveForm = document.getElementById('reserveForm');
+if (reserveForm) {
+    reserveForm.addEventListener('submit', function() {
+        var btn = document.getElementById('reserveSubmitBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
+        }
+    });
+}
 
 // ── Auth modal ────────────────────────────────────────────
 function openLogin() {
