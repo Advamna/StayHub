@@ -12,11 +12,12 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // CSRF — accept token from POST body or X-CSRF-Token header
-$postToken   = $_POST['csrf_token']   ?? '';
-$headerToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-$sessionToken = $_SESSION['csrf_token'] ?? '';
-if ($sessionToken && $postToken !== $sessionToken && $headerToken !== $sessionToken) {
-    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+$postToken    = $_POST['csrf_token']             ?? '';
+$headerToken  = $_SERVER['HTTP_X_CSRF_TOKEN']    ?? '';
+$sessionToken = $_SESSION['csrf_token']          ?? '';
+// Only enforce CSRF if a session token actually exists
+if ($sessionToken && ($postToken !== $sessionToken && $headerToken !== $sessionToken)) {
+    echo json_encode(['success' => false, 'message' => 'Invalid request', 'debug' => 'csrf_mismatch']);
     exit;
 }
 
