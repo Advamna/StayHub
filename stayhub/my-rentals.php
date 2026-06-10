@@ -385,9 +385,10 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 
             // Image URL
             if (!empty($rental['image_url'])) {
+                // DB stores full relative path e.g. 'img/uploads/filename.jpg'
                 $imgSrc = (strpos($rental['image_url'], 'http') === 0)
                         ? $rental['image_url']
-                        : 'img/uploads/' . $rental['image_url'];
+                        : $rental['image_url'];  // already 'img/uploads/...'
             } else {
                 $imgSrc = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=60';
             }
@@ -398,7 +399,8 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         ?>
         <div class="rental-card <?php echo $isCancelled ? 'cancelled' : ''; ?>">
 
-            <img class="rental-img" src="<?php echo htmlspecialchars($imgSrc); ?>" alt="<?php echo htmlspecialchars($rental['title']); ?>">
+            <img class="rental-img" src="<?php echo htmlspecialchars($imgSrc); ?>" alt="<?php echo htmlspecialchars($rental['title']); ?>"
+                 onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=60'">
 
             <div class="rental-body">
                 <h3 class="rental-title"><?php echo htmlspecialchars($rental['title']); ?></h3>
