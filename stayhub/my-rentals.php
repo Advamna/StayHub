@@ -38,7 +38,10 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     <link rel="icon" type="image/png" href="StayHubIcon.png">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -384,9 +387,9 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             if (!empty($rental['image_url'])) {
                 $imgSrc = (strpos($rental['image_url'], 'http') === 0)
                         ? $rental['image_url']
-                        : 'uploads/' . $rental['image_url'];
+                        : 'img/uploads/' . $rental['image_url'];
             } else {
-                $imgSrc = 'img/default-avatar.png';
+                $imgSrc = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400&q=60';
             }
 
             // Dates
@@ -421,7 +424,10 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
                     </span>
 
                     <?php if ($status === 'pending'): ?>
-                        <a href="payment.php?id=<?php echo $rental['id']; ?>" class="btn-explore" style="padding: 8px 18px; font-size: 13px;">
+                        <a href="payment.php?id=<?php echo $rental['id']; ?>" 
+                           class="btn-explore" 
+                           style="padding: 8px 18px; font-size: 13px;"
+                           onclick="this.innerHTML='<i class='fas fa-spinner fa-spin'></i> Loading…'; this.style.pointerEvents='none';">
                             <i class="fas fa-credit-card"></i> Pay Now
                         </a>
                         <button class="btn-cancel" onclick="openCancelModal(<?php echo (int)$rental['id']; ?>, '<?php echo htmlspecialchars(addslashes($rental['title'])); ?>')">
@@ -431,8 +437,10 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
                         <a href="receipt.php?id=<?php echo $rental['id']; ?>" class="btn-explore" style="background: #222; padding: 8px 18px; font-size: 13px;">
                             <i class="fas fa-file-invoice"></i> View Receipt
                         </a>
-                        <?php
-                        // Feature 8: Review button — only if checkout has passed
+                    <?php endif; ?>
+                    <?php
+                    // Feature 8: Review button — show for confirmed OR pending after checkout date
+                    if ($status !== 'cancelled') {
                         $checkoutDate = ($rental['check_out'] instanceof DateTime)
                             ? $rental['check_out']
                             : new DateTime($rental['check_out']);
@@ -442,16 +450,16 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
                         $revChkSql  = "SELECT id FROM reviews WHERE reservation_id = ? AND user_id = ?";
                         $revChkStmt = sqlsrv_query($conn, $revChkSql, [(int)$rental['id'], $user_id]);
                         $hasReviewed = ($revChkStmt && sqlsrv_fetch_array($revChkStmt, SQLSRV_FETCH_ASSOC));
-                        ?>
-                        <?php if ($canLeaveReview && !$hasReviewed): ?>
-                        <a href="listing.php?id=<?php echo $rental['listing_id']; ?>#reviews"
-                           class="btn-explore"
-                           style="background:#ff385c; padding:8px 18px; font-size:13px;">
-                            <i class="fas fa-star"></i> Leave a Review
-                        </a>
-                        <?php elseif ($hasReviewed): ?>
-                        <span style="font-size:12px;color:#717171;font-style:italic;"><i class="fas fa-check"></i> Reviewed</span>
-                        <?php endif; ?>
+                    }
+                    ?>
+                    <?php if ($status !== 'cancelled' && $canLeaveReview && !$hasReviewed): ?>
+                    <a href="listing.php?id=<?php echo $rental['listing_id']; ?>#reviews"
+                       class="btn-explore"
+                       style="background:#ff385c; padding:8px 18px; font-size:13px;">
+                        <i class="fas fa-star"></i> Leave a Review
+                    </a>
+                    <?php elseif ($status !== 'cancelled' && isset($hasReviewed) && $hasReviewed): ?>
+                    <span style="font-size:12px;color:#717171;font-style:italic;"><i class="fas fa-check"></i> Reviewed</span>
                     <?php endif; ?>
                 </div>
             </div>
@@ -497,3 +505,4 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 
 </body>
 </html>
+
