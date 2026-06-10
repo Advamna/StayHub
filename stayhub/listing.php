@@ -743,21 +743,32 @@ function toggleWish(listingId) {
     if (!btn) return;
     var fd  = new FormData();
     fd.append('listing_id', listingId);
-    // Send CSRF from meta tag OR from hidden input fallback
     var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    var csrfVal  = csrfMeta ? csrfMeta.content : (document.querySelector('input[name="csrf_token"]') || {value:''}).value;
+    var csrfVal  = csrfMeta ? csrfMeta.content : '';
+    if (!csrfVal) {
+        var csrfInput = document.querySelector('input[name="csrf_token"]');
+        if (csrfInput) csrfVal = csrfInput.value;
+    }
     if (csrfVal) fd.append('csrf_token', csrfVal);
+    // Optimistic update
+    var wasSaved = btn.classList.contains('saved');
+    btn.classList.toggle('saved', !wasSaved);
     fetch('api/toggle-wishlist.php', { method: 'POST', body: fd })
-        .then(r => r.json())
+        .then(function(r) { return r.json(); })
         .then(function(data) {
-            if (data.redirect || data.message === 'Login required') { openLogin(); return; }
+            if (data.message === 'Login required') { btn.classList.toggle('saved', wasSaved); openLogin(); return; }
             if (data.success) {
                 btn.classList.toggle('saved', data.saved);
-                btn.querySelector('i').style.color = data.saved ? '#ff385c' : '#717171';
                 btn.title = data.saved ? 'Remove from saved' : 'Save listing';
+            } else {
+                btn.classList.toggle('saved', wasSaved);
+                console.error('Wishlist error:', data.message, data.debug || '');
             }
         })
-        .catch(function(e) { console.error('Wishlist error:', e); });
+        .catch(function(e) {
+            btn.classList.toggle('saved', wasSaved);
+            console.error('Wishlist network error:', e);
+        });
 }
 
 // ── Feature 11: Availability mini-calendar ───────────────
