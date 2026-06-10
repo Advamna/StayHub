@@ -1,5 +1,6 @@
 <?php 
 session_start();
+if (empty(\$_SESSION['csrf_token'])) \$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 require_once 'config.php';
 
 $isHost     = false;
@@ -112,6 +113,7 @@ $filter_qs = http_build_query(array_filter([
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
     <title>StayHub | Find your next stay</title>
     <link rel="icon" type="image/png" href="StayHubIcon.png">
     <link rel="stylesheet" href="style.css?v=<?php echo time(); ?>">
