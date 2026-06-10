@@ -1,5 +1,6 @@
 <?php
 session_start();
+if (empty(\$_SESSION['csrf_token'])) { \$_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 require_once 'config.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -113,6 +114,7 @@ $imgSrc = !empty($reservation['image_url'])
         </p>
         <form action="api/process-payment.php" method="POST" id="payment-form">
             <input type="hidden" name="reservation_id" value="<?php echo (int)$reservation_id; ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
 
             <!-- Name on Card — letters only -->
             <div class="form-group">
