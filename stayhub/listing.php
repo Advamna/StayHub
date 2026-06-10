@@ -1,5 +1,6 @@
 <?php
 session_start();
+if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 require_once 'config.php';
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -554,7 +555,9 @@ if (isset($_SESSION['user_id'])) {
                 <div class="field-group">
                     <label><i class="fas fa-users"></i> Guests</label>
                     <select name="guests" id="guestsField">
-                        <?php for ($g = 1; $g <= max(1, $guests); $g++): ?>
+                        <?php
+                        $maxG = max(1, (int)($listing['voyageur_count'] ?? $listing['guests'] ?? $guests ?? 2));
+                        for ($g = 1; $g <= $maxG; $g++): ?>
                             <option value="<?php echo $g; ?>"><?php echo $g; ?> Guest<?php echo $g > 1 ? 's' : ''; ?></option>
                         <?php endfor; ?>
                     </select>
@@ -737,19 +740,24 @@ document.getElementById('reviewForm')?.addEventListener('submit', function(e) {
 // ── Wishlist heart ────────────────────────────────────────
 function toggleWish(listingId) {
     var btn = document.getElementById('wishBtn');
+    if (!btn) return;
     var fd  = new FormData();
     fd.append('listing_id', listingId);
+    // Send CSRF from meta tag OR from hidden input fallback
     var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    if (csrfMeta) fd.append('csrf_token', csrfMeta.content);
+    var csrfVal  = csrfMeta ? csrfMeta.content : (document.querySelector('input[name="csrf_token"]') || {value:''}).value;
+    if (csrfVal) fd.append('csrf_token', csrfVal);
     fetch('api/toggle-wishlist.php', { method: 'POST', body: fd })
         .then(r => r.json())
-        .then(data => {
-            if (data.redirect) { openLogin(); return; }
+        .then(function(data) {
+            if (data.redirect || data.message === 'Login required') { openLogin(); return; }
             if (data.success) {
                 btn.classList.toggle('saved', data.saved);
+                btn.querySelector('i').style.color = data.saved ? '#ff385c' : '#717171';
                 btn.title = data.saved ? 'Remove from saved' : 'Save listing';
             }
-        });
+        })
+        .catch(function(e) { console.error('Wishlist error:', e); });
 }
 
 // ── Feature 11: Availability mini-calendar ───────────────
