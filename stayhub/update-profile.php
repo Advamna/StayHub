@@ -32,17 +32,20 @@ if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
     $imageData = file_get_contents($_FILES['avatar']['tmp_name']);
 
     // ── Parameterised binary insert ──
-    $sql = "UPDATE users SET name = ?, avatar = ? WHERE id = ?";
+    $phone = trim($_POST['phone'] ?? '');
+    $sql = "UPDATE users SET name = ?, phone = ?, avatar = ? WHERE id = ?";
     $params = [
         $name,
+        $phone,
         [ $imageData, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_STRING(SQLSRV_ENC_BINARY), SQLSRV_SQLTYPE_VARBINARY('max') ],
         $user_id
     ];
 
 } else {
-    // No new image — only update name
-    $sql    = "UPDATE users SET name = ? WHERE id = ?";
-    $params = [$name, $user_id];
+    // No new image — update name and phone
+    $phone  = trim($_POST['phone'] ?? '');
+    $sql    = "UPDATE users SET name = ?, phone = ? WHERE id = ?";
+    $params = [$name, $phone, $user_id];
 }
 
 $stmt = sqlsrv_query($conn, $sql, $params);
