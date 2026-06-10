@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 
 // 1. Fetch latest data including name and avatar
-$sql = "SELECT name, email, avatar FROM users WHERE id = ?";
+$sql = "SELECT name, email, phone, avatar FROM users WHERE id = ?";
 $stmt = sqlsrv_query($conn, $sql, array($user_id));
 $user = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 
@@ -29,6 +29,7 @@ if (!empty($user['avatar'])) {
     <meta charset="UTF-8">
     <title>Mon Profil - StayHub</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         #profileModalOverlay {
             display: none;
@@ -91,6 +92,12 @@ if (!empty($user['avatar'])) {
         
         <h2 style="margin-top: 20px;"><?php echo htmlspecialchars($user['name']); ?></h2>
         <p style="color: #717171;"><?php echo htmlspecialchars($user['email']); ?></p>
+        <?php if (!empty($user['phone'])): ?>
+        <p style="color: #717171; font-size:14px; margin-top:4px;">
+            <i class="fas fa-phone" style="color:#ff385c; margin-right:5px;"></i>
+            <?php echo htmlspecialchars($user['phone']); ?>
+        </p>
+        <?php endif; ?>
 
         <button onclick="window.location.href='logout.php'" style="margin-top: 30px; background: #222; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer;">Se déconnecter</button>
     </div>
@@ -103,8 +110,14 @@ if (!empty($user['avatar'])) {
         
         <form id="finalProfileForm" action="update-profile.php" method="POST" enctype="multipart/form-data">
             <div style="margin-bottom: 15px; text-align: left;">
-                <label style="display: block; font-size: 14px; margin-bottom: 5px;">Nom complet</label>
+                <label style="display: block; font-size: 14px; margin-bottom: 5px;">Full Name</label>
                 <input type="text" name="name" value="<?php echo htmlspecialchars($user['name']); ?>" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;" required>
+            </div>
+            <div style="margin-bottom: 15px; text-align: left;">
+                <label style="display: block; font-size: 14px; margin-bottom: 5px;">Phone Number</label>
+                <input type="tel" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>"
+                       placeholder="+212 6 00 00 00 00"
+                       style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
             </div>
             <div style="margin-bottom: 25px; text-align: left;">
                 <label style="display: block; font-size: 14px; margin-bottom: 5px;">Photo de profil</label>
