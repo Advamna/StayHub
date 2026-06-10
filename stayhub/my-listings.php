@@ -511,7 +511,12 @@ $listing_ids = array_column($listings, 'id');
         .hcal-legend { display: flex; gap: 12px; margin-top: 8px; font-size: 11px; color: #717171; }
         .hcal-legend span { display: flex; align-items: center; gap: 4px; }
         .hcal-dot { width: 9px; height: 9px; border-radius: 3px; }
-    </style>
+            .btn-toggle-status { padding:8px 14px; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; transition:.15s; }
+        .btn-activate   { background:#e8f5e9; color:#2e7d32; }
+        .btn-activate:hover { background:#c8e6c9; }
+        .btn-deactivate { background:#fff3e0; color:#e65100; }
+        .btn-deactivate:hover { background:#ffe0b2; }
+</style>
 </head>
 <body>
 
@@ -650,6 +655,12 @@ foreach ($listings as $l) {
                         <a href="edit-listing.php?id=<?php echo $listingId; ?>" class="btn-edit">
                             <i class="fas fa-pen"></i> Edit
                         </a>
+                        <?php $isActive = ($listing['status'] === 'active' || empty($listing['status'])); ?>
+                        <button class="btn-toggle-status <?php echo $isActive ? 'btn-deactivate' : 'btn-activate'; ?>"
+                                onclick="toggleStatus(<?php echo $listingId; ?>, <?php echo $isActive ? 'true' : 'false'; ?>)">
+                            <i class="fas <?php echo $isActive ? 'fa-eye-slash' : 'fa-eye'; ?>"></i>
+                            <?php echo $isActive ? 'Deactivate' : 'Activate'; ?>
+                        </button>
                         <button class="btn-delete"
                                 onclick="confirmDelete(<?php echo $listingId; ?>, '<?php echo htmlspecialchars(addslashes($listing['title'])); ?>')">
                             <i class="fas fa-trash-alt"></i> Delete
