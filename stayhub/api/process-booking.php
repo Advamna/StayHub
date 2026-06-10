@@ -165,5 +165,5 @@ if ($hostIdStmt && $hRow = sqlsrv_fetch_array($hostIdStmt, SQLSRV_FETCH_ASSOC)) 
     sqlsrv_query($conn, $notifSql, [(int)$hRow['user_id'], 'New Booking', $notifMsg]);
 }
 
-header("Location: ../payment.php?reservation_id=" . $resId);
+header("Location: ../payment.php?id=" . $resId);
 exit;
