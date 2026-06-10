@@ -11,6 +11,15 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// CSRF — accept token from POST body or X-CSRF-Token header
+$postToken   = $_POST['csrf_token']   ?? '';
+$headerToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+$sessionToken = $_SESSION['csrf_token'] ?? '';
+if ($sessionToken && $postToken !== $sessionToken && $headerToken !== $sessionToken) {
+    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+    exit;
+}
+
 $user_id    = (int)$_SESSION['user_id'];
 $listing_id = (int)($_POST['listing_id'] ?? 0);
 
