@@ -187,7 +187,7 @@ $filter_qs = http_build_query(array_filter([
         .wish-btn:hover { transform: scale(1.15); }
         .wish-btn.saved i { color: #ff385c; }
         .wish-btn:not(.saved) i { color: #717171; }
-        .card-image { position: relative; }
+        .card-image { position: relative; min-height: 200px; background: #f0f0f0; }
 
         /* ── Pagination ── */
         .pagination {
@@ -337,8 +337,10 @@ $filter_qs = http_build_query(array_filter([
         ?>
             <div class="listing-card" onclick="window.location.href='listing.php?id=<?php echo $listing['id']; ?>'">
                 <div class="card-image">
-                    <img src="<?php echo !empty($listing['MainPhoto']) ? htmlspecialchars($listing['MainPhoto']) : 'img/placeholder.jpg'; ?>"
-                         alt="<?php echo htmlspecialchars($listing['title']); ?>" loading="lazy">
+                    <img src="<?php echo !empty($listing['MainPhoto']) ? htmlspecialchars($listing['MainPhoto']) : 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=70'; ?>"
+                         alt="<?php echo htmlspecialchars($listing['title']); ?>"
+                         loading="lazy"
+                         onerror="this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=70'">
                     <!-- Feature 13: Wishlist heart -->
                     <?php if (isset($_SESSION['user_id'])): ?>
                     <button class="wish-btn <?php echo $isSaved ? 'saved' : ''; ?>"
@@ -473,3 +475,4 @@ function toggleWish(e, btn, listingId) {
 </script>
 </body>
 </html>
+
