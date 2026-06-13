@@ -335,6 +335,41 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             .rental-img  { width: 100%; height: 180px; }
             .rental-meta { flex-direction: row; align-items: center; padding: 0 20px 20px; }
         }
+
+        /* ── Review Reminder Float ── */
+        #reviewReminder {
+            position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+            background: #fff; border-radius: 16px;
+            border: 1.5px solid #ffc0cc;
+            box-shadow: 0 8px 32px rgba(255,56,92,.18), 0 2px 8px rgba(0,0,0,.08);
+            display: flex; align-items: center; gap: 14px;
+            padding: 16px 20px; max-width: 340px;
+            animation: slideInRight .4s cubic-bezier(.16,1,.3,1);
+        }
+        @keyframes slideInRight {
+            from { opacity:0; transform:translateX(60px) scale(.95); }
+            to   { opacity:1; transform:translateX(0)   scale(1);    }
+        }
+        #reviewReminder.hiding { animation: slideOutRight .3s ease forwards; }
+        @keyframes slideOutRight { to { opacity:0; transform:translateX(70px); } }
+        #reviewReminder .rr-icon {
+            width:44px; height:44px; background:#fff0f3; border-radius:12px;
+            display:flex; align-items:center; justify-content:center;
+            color:#ff385c; font-size:20px; flex-shrink:0;
+        }
+        #reviewReminder .rr-body { flex:1; }
+        #reviewReminder .rr-title { font-size:13px; font-weight:700; color:#222; margin-bottom:3px; }
+        #reviewReminder .rr-sub   { font-size:12px; color:#717171; line-height:1.4; }
+        #reviewReminder .rr-link  {
+            display:inline-block; margin-top:8px; background:#ff385c; color:#fff;
+            padding:6px 14px; border-radius:8px; font-size:12px; font-weight:700; text-decoration:none;
+        }
+        #reviewReminder .rr-link:hover { background:#e0314f; }
+        #reviewReminder .rr-close {
+            background:none; border:none; font-size:16px; color:#bbb;
+            cursor:pointer; padding:0; flex-shrink:0; align-self:flex-start;
+        }
+        #reviewReminder .rr-close:hover { color:#333; }
     </style>
 </head>
 <body>
@@ -562,6 +597,55 @@ document.querySelectorAll('.rental-countdown').forEach(function(el) {
     tick();
 });
 </script>
+
+
+<?php
+// ── Feature 1: Floating Review Reminder ──────────────────
+$floatReminder = null;
+if (isset($_SESSION['user_id'])) {
+    $frSql = "SELECT r.id AS res_id, r.listing_id, r.check_out, l.title AS listing_title
+              FROM reservations r
+              JOIN listings l ON r.listing_id = l.id
+              WHERE r.user_id = ? AND r.status = 'confirmed'
+                AND r.check_out <= CAST(GETDATE() AS DATE)
+                AND NOT EXISTS (
+                    SELECT 1 FROM reviews rv
+                    WHERE rv.reservation_id = r.id AND rv.user_id = r.user_id
+                )
+              ORDER BY r.check_out DESC";
+    $frStmt = sqlsrv_query($conn, $frSql, [(int)$_SESSION['user_id']]);
+    if ($frStmt) $floatReminder = sqlsrv_fetch_array($frStmt, SQLSRV_FETCH_ASSOC);
+}
+?>
+<?php if ($floatReminder): ?>
+<div id="reviewReminder" data-res-id="<?php echo $floatReminder['res_id']; ?>">
+    <div class="rr-icon"><i class="fas fa-star"></i></div>
+    <div class="rr-body">
+        <div class="rr-title">How was your stay?</div>
+        <div class="rr-sub">Leave a review about <strong><?php echo htmlspecialchars($floatReminder['listing_title']); ?></strong></div>
+        <a class="rr-link" href="submit-review.php?reservation_id=<?php echo $floatReminder['res_id']; ?>">
+            Leave a review <i class="fas fa-arrow-right"></i>
+        </a>
+    </div>
+    <button class="rr-close" onclick="dismissReminder(<?php echo $floatReminder['res_id']; ?>)" title="Dismiss">✕</button>
+</div>
+<script>
+(function() {
+    var resId = <?php echo $floatReminder['res_id']; ?>;
+    if (localStorage.getItem('rr_dismissed_' + resId)) {
+        var el = document.getElementById('reviewReminder');
+        if (el) el.style.display = 'none';
+    }
+})();
+function dismissReminder(resId) {
+    localStorage.setItem('rr_dismissed_' + resId, '1');
+    var el = document.getElementById('reviewReminder');
+    if (!el) return;
+    el.classList.add('hiding');
+    setTimeout(function() { el.style.display = 'none'; }, 300);
+}
+</script>
+<?php endif; ?>
 
 </body>
 </html>
