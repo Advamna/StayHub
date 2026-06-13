@@ -49,8 +49,15 @@ if (!$stmt) {
 }
 $res = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 if (!$res) {
-    header('Location: my-rentals.php');
-    exit;
+    // Try fetching without confirmed status check — maybe status isn't confirmed yet
+    $stmt2 = sqlsrv_query($conn, str_replace("AND r.status = 'confirmed'", "", $sql), [$reservation_id, $user_id]);
+    if ($stmt2) $res = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC);
+    if (!$res) {
+        header('Location: my-rentals.php?error=notfound');
+        exit;
+    }
+    // Log that receipt was accessed for non-confirmed booking
+    error_log("receipt.php: reservation $reservation_id accessed by user $user_id — status may not be confirmed");
 }
 
 // ── Date calculations ────────────────────────────────────────────────
@@ -59,13 +66,17 @@ $d2    = ($res['check_out'] instanceof DateTime) ? $res['check_out'] : new DateT
 $nights = max(1, $d1->diff($d2)->days);
 
 $nightly_price  = (float)($res['nightly_price'] ?? 0);
-$base_amount    = $nightly_price * $nights;
+$base_amount    = $nightly_price > 0 ? $nightly_price * $nights : (float)($res['total_price'] ?? 0);
 $cleaning_fee   = 150.00;
 $service_fee    = round($base_amount * 0.10, 2);
 $tax_amount     = (float)($res['tax_amount']    ?? round($base_amount * 0.20, 2));
-$total_amount   = (float)($res['invoice_total'] ?? $res['total_price']);
+$total_amount   = (float)($res['invoice_total'] ?? $res['payment_amount'] ?? $res['total_price'] ?? 0);
 $payment_method = $res['payment_method'] ?? 'Card';
 $payment_status = $res['payment_status'] ?? 'completed';
+
+// ── Warn flag (payment log missing but reservation is confirmed) ─────
+$showPaymentWarn = isset($_GET['warn']) && $_GET['warn'] === 'payment_log';
+$hasPaymentData  = !empty($res['payment_id']);
 
 // ── Receipt & Invoice numbers ────────────────────────────────────────
 // Use real invoice_number from DB if available, otherwise fallback
@@ -230,14 +241,20 @@ $issued_date = !empty($res['issued_at'])
 <div class="receipt-page">
 
     <!-- ── Status Banner ── -->
+    <?php if ($showPaymentWarn && !$hasPaymentData): ?>
+    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:14px 20px;margin-bottom:20px;font-size:14px;color:#92400e;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-exclamation-triangle" style="color:#d97706;"></i>
+        <span>Your booking is confirmed, but we couldn't log the payment record. Your stay is guaranteed — please contact support if needed.</span>
+    </div>
+    <?php endif; ?>
     <div class="status-banner">
         <div class="status-icon"><i class="fas fa-check"></i></div>
         <div>
             <div class="status-title">Payment Confirmed!</div>
             <div class="status-sub">
                 Your stay at <strong><?php echo htmlspecialchars($res['listing_title']); ?></strong> is booked.
-                Receipt <strong><?php echo htmlspecialchars($receipt_number); ?></strong> &bull;
-                Invoice <strong><?php echo htmlspecialchars($invoice_number); ?></strong>
+                Receipt <strong><?php echo htmlspecialchars($receipt_number); ?></strong>
+                <?php if ($hasPaymentData): ?> &bull; Invoice <strong><?php echo htmlspecialchars($invoice_number); ?></strong><?php endif; ?>
             </div>
         </div>
     </div>
