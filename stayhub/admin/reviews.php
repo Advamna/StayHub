@@ -120,11 +120,102 @@ $totalRejected = $statsRaw['rejected'] ?? 0;
         .no-reviews { text-align:center; padding:40px; color:#717171; }
         .listing-link { color:#ff385c; font-weight:600; font-size:13px; text-decoration:none; }
         .listing-link:hover { text-decoration:underline; }
+
+        /* ── Print button styles ── */
+        .btn-print-all {
+            display:inline-flex; align-items:center; gap:7px;
+            padding:9px 18px; border-radius:8px; border:1.5px solid #ff385c;
+            background:#fff; color:#ff385c; font-size:13px; font-weight:600;
+            cursor:pointer; transition:background .15s, color .15s;
+        }
+        .btn-print-all:hover { background:#ff385c; color:#fff; }
+        .btn-print-single {
+            background:#f0f4ff; color:#3b5bdb; border:none;
+            padding:6px 12px; border-radius:6px; font-size:12px;
+            font-weight:600; cursor:pointer; display:flex; align-items:center;
+            gap:5px; white-space:nowrap; transition:background .15s;
+        }
+        .btn-print-single:hover { background:#dce4ff; }
+
+        /* ── Print styles ── */
+        @media print {
+            * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+            body { background:#fff !important; margin:0; padding:0; font-family:'Inter','Segoe UI',sans-serif; }
+            @page { margin:14mm 12mm; size:A4 portrait; }
+
+            /* Hide everything that's not content */
+            .sidebar, .filter-row, .bulk-bar, .actions-cell,
+            .btn-print-all, .btn-print-single, .stat-pills,
+            .page-header p, form > .filter-row,
+            input[type="checkbox"], thead th:first-child,
+            tbody td:first-child, tbody td:last-child,
+            thead th:last-child { display:none !important; }
+
+            .main-content { margin-left:0 !important; width:100% !important; padding:0 !important; }
+            .section-card { box-shadow:none !important; border:none !important; padding:0 !important; }
+
+            /* Letterhead */
+            .print-header {
+                display:flex !important;
+                align-items:center;
+                justify-content:space-between;
+                padding-bottom:14px;
+                margin-bottom:20px;
+                border-bottom:2.5px solid #ff385c;
+            }
+            .print-logo { font-size:28px; font-weight:900; color:#ff385c !important; letter-spacing:-0.5px; }
+            .print-logo span { color:#222 !important; }
+            .print-meta { text-align:right; font-size:11px; color:#555 !important; line-height:1.8; }
+            .print-meta strong { color:#111 !important; font-size:12px; }
+
+            /* Page header title */
+            .page-header h1 { font-size:20px !important; margin:0 0 4px !important; color:#222 !important; }
+
+            /* Table styles */
+            table { width:100%; border-collapse:collapse; font-size:12px; }
+            th { background:#f9f9f9 !important; font-weight:700; font-size:11px;
+                 text-transform:uppercase; letter-spacing:.4px; color:#444 !important;
+                 border-bottom:2px solid #eee; padding:8px 10px; }
+            td { padding:10px 10px; border-bottom:1px solid #f0f0f0; vertical-align:top; }
+            .review-row { break-inside:avoid; }
+
+            /* Badges keep colours */
+            .badge-pending  { background:#fff3cd !important; color:#856404 !important; }
+            .badge-approved { background:#d1e7dd !important; color:#0f5132 !important; }
+            .badge-rejected { background:#f8d7da !important; color:#842029 !important; }
+            .badge { padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+            .star-display i { color:#ff385c !important; font-size:12px; }
+            .star-display i.empty { color:#e0e0e0 !important; }
+
+            /* Single-review print: hide all rows except the target */
+            body.print-single tbody tr.review-row { display:none !important; }
+            body.print-single tbody tr.print-target { display:table-row !important; }
+
+            /* Print footer */
+            .print-footer {
+                display:block !important; text-align:center;
+                margin-top:28px; padding-top:12px;
+                border-top:1px solid #eee;
+                font-size:10px; color:#aaa !important;
+            }
+        }
+        .print-header { display:none; }
+        .print-footer { display:none; }
     </style>
 </head>
 <body>
 <?php include 'sidebar.php'; ?>
 <div class="main-content">
+
+    <!-- Print letterhead (hidden on screen, shown on print) -->
+    <div class="print-header">
+        <div class="print-logo">Stay<span>Hub</span></div>
+        <div class="print-meta">
+            <strong>Admin — Reviews Report</strong><br>
+            <?php echo count($reviews); ?> review<?php echo count($reviews)!=1?'s':''; ?> total<br>
+            Printed: <?php echo date('d/m/Y H:i'); ?>
+        </div>
+    </div>
 
     <div class="page-header">
         <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
@@ -132,10 +223,15 @@ $totalRejected = $statsRaw['rejected'] ?? 0;
                 <h1>Manage Reviews</h1>
                 <p>Moderate, approve, and feature guest reviews</p>
             </div>
-            <div class="stat-pills">
-                <span class="stat-pill" style="background:#fff3cd; color:#856404;">⏳ <?php echo $totalPending; ?> Pending</span>
-                <span class="stat-pill" style="background:#d1e7dd; color:#0f5132;">✅ <?php echo $totalApproved; ?> Approved</span>
-                <span class="stat-pill" style="background:#f8d7da; color:#842029;">❌ <?php echo $totalRejected; ?> Rejected</span>
+            <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                <div class="stat-pills" style="margin:0;">
+                    <span class="stat-pill" style="background:#fff3cd; color:#856404;">⏳ <?php echo $totalPending; ?> Pending</span>
+                    <span class="stat-pill" style="background:#d1e7dd; color:#0f5132;">✅ <?php echo $totalApproved; ?> Approved</span>
+                    <span class="stat-pill" style="background:#f8d7da; color:#842029;">❌ <?php echo $totalRejected; ?> Rejected</span>
+                </div>
+                <button class="btn-print-all" onclick="printAll()">
+                    <i class="fas fa-print"></i> Print All Reviews
+                </button>
             </div>
         </div>
     </div>
@@ -217,7 +313,7 @@ $totalRejected = $statsRaw['rejected'] ?? 0;
                     $statusClass = 'badge-' . ($rv['status'] ?? 'pending');
                     $isFeatured  = !empty($rv['is_featured']);
                 ?>
-                <tr class="review-row" style="border-bottom:1px solid #f5f5f5;">
+                <tr class="review-row" id="review-row-<?php echo $rv['id']; ?>" style="border-bottom:1px solid #f5f5f5;">
                     <td><input type="checkbox" name="selected[]" value="<?php echo $rv['id']; ?>"></td>
                     <td>
                         <a href="../listing.php?id=<?php echo $rv['listing_id']; ?>" target="_blank" class="listing-link">
@@ -282,6 +378,11 @@ $totalRejected = $statsRaw['rejected'] ?? 0;
                             </form>
                             <?php endif; ?>
 
+                            <button type="button" class="btn-print-single"
+                                    onclick="printSingle(<?php echo $rv['id']; ?>)">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+
                             <form method="POST" style="margin:0;" onsubmit="return confirm('Delete this review?')">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="review_id" value="<?php echo $rv['id']; ?>">
@@ -298,10 +399,36 @@ $totalRejected = $statsRaw['rejected'] ?? 0;
     </div>
 </div>
 
+    <!-- Print footer (hidden on screen) -->
+    <div class="print-footer">
+        StayHub Admin Panel &mdash; Confidential &mdash; Printed <?php echo date('d/m/Y H:i'); ?>
+    </div>
+
+</div><!-- /.main-content -->
+
 <script>
 document.getElementById('selectAll')?.addEventListener('change', function() {
     document.querySelectorAll('input[name="selected[]"]').forEach(cb => cb.checked = this.checked);
 });
+
+function printAll() {
+    document.body.classList.remove('print-single');
+    document.querySelectorAll('tbody tr.review-row').forEach(tr => tr.classList.remove('print-target'));
+    window.print();
+}
+
+function printSingle(reviewId) {
+    document.body.classList.add('print-single');
+    document.querySelectorAll('tbody tr.review-row').forEach(tr => tr.classList.remove('print-target'));
+    const target = document.getElementById('review-row-' + reviewId);
+    if (target) target.classList.add('print-target');
+    window.print();
+    // Cleanup after print dialog closes
+    setTimeout(() => {
+        document.body.classList.remove('print-single');
+        document.querySelectorAll('tbody tr.review-row').forEach(tr => tr.classList.remove('print-target'));
+    }, 1000);
+}
 </script>
 </body>
 </html>
