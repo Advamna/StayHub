@@ -4,11 +4,8 @@
 --  Drop & recreate everything -- one file, one run
 -- ============================================================
 
-SET FOREIGN_KEY_CHECKS = 0;
-DROP DATABASE IF EXISTS stayhub;
 CREATE DATABASE stayhub CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE stayhub;
-SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
 --  TABLES
