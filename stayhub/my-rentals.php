@@ -238,6 +238,21 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         .badge-cancelled  { background: #fdecea; color: #b71c1c; }
 
         /* Cancel button */
+        /* ── Addon 3: Rental countdown ── */
+        .rental-countdown {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 7px 12px;
+            font-size: 12px;
+            color: #856404;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .rental-countdown.urgent { background: #fdecea; border-color: #ff385c; color: #c0392b; }
+        .rcd-text { font-weight: 600; }
         .btn-cancel {
             background: transparent;
             border: 1.5px solid #ff385c;
@@ -426,10 +441,25 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
                     </span>
 
                     <?php if ($status === 'pending'): ?>
+                        <?php
+                        $expiresTs = null;
+                        if (!empty($rental['expires_at'])) {
+                            $expObj = ($rental['expires_at'] instanceof DateTime)
+                                ? $rental['expires_at']
+                                : new DateTime($rental['expires_at']);
+                            $expiresTs = $expObj->getTimestamp();
+                        }
+                        ?>
+                        <?php if ($expiresTs && $expiresTs > time()): ?>
+                        <div class="rental-countdown" data-expires="<?php echo (int)$expiresTs * 1000; ?>">
+                            <i class="fas fa-clock"></i>
+                            <span class="rcd-text">Loading…</span>
+                        </div>
+                        <?php endif; ?>
                         <a href="payment.php?id=<?php echo $rental['id']; ?>" 
                            class="btn-explore" 
                            style="padding: 8px 18px; font-size: 13px;"
-                           onclick="this.innerHTML='<i class='fas fa-spinner fa-spin'></i> Loading…'; this.style.pointerEvents='none';">
+                           onclick="this.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i> Loading…'; this.style.pointerEvents='none';">
                             <i class="fas fa-credit-card"></i> Pay Now
                         </a>
                         <button class="btn-cancel" onclick="openCancelModal(<?php echo (int)$rental['id']; ?>, '<?php echo htmlspecialchars(addslashes($rental['title'])); ?>')">
@@ -503,6 +533,31 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     document.getElementById('cancelModalOverlay').addEventListener('click', function(e) {
         if (e.target === this) closeCancelModal();
     });
+</script>
+
+
+<script>
+// ── Addon 3: Countdown timers on rental cards ──
+document.querySelectorAll('.rental-countdown').forEach(function(el) {
+    var expMs = parseInt(el.dataset.expires, 10);
+    function tick() {
+        var remaining = expMs - Date.now();
+        if (remaining <= 0) {
+            el.querySelector('.rcd-text').textContent = 'Expired — reservation cancelled';
+            el.classList.add('urgent');
+            return;
+        }
+        var totalSec = Math.floor(remaining / 1000);
+        var h = Math.floor(totalSec / 3600);
+        var m = Math.floor((totalSec % 3600) / 60);
+        var s = totalSec % 60;
+        el.querySelector('.rcd-text').textContent =
+            h + 'h ' + (m < 10 ? '0' : '') + m + 'm ' + (s < 10 ? '0' : '') + s + 's to pay';
+        if (remaining < 3600000) el.classList.add('urgent');
+        setTimeout(tick, 1000);
+    }
+    tick();
+});
 </script>
 
 </body>
