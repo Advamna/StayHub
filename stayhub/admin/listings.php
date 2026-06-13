@@ -61,21 +61,83 @@ while ($r = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) $listings[] = $r;
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         <?php include 'admin-style.php'; ?>
+        /* ══════════════════════════════════════════
+           STAYHUB UNIVERSAL PRINT STYLES
+           ══════════════════════════════════════════ */
         @media print {
-            .sidebar, .filter-bar, .btn-sm, td:last-child, th:last-child, .adm-overlay { display: none !important; }
-            body { background: #fff; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background: #fff !important; margin: 0; padding: 0; }
+            @page { margin: 14mm 12mm 14mm 12mm; size: A4 portrait; }
+
+            /* ── Hide all screen chrome ── */
+            .top-nav, .nav-bar, .sidebar, .filter-bar,
+            .btn-print, .btn-add-listing, .btn-sm,
+            .action-buttons, .stats-bar, .bookings-toggle,
+            .alert, .delete-overlay, .adm-overlay,
+            .no-print { display: none !important; }
+
+            /* ── Page layout ── */
             .main-content { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ddd; padding: 8px; }
-            .section-card { box-shadow: none; border: none; }
+            .container    { margin: 0; padding: 0; max-width: 100%; }
+            .page-header  { padding: 0 0 16px 0 !important; }
+
+            /* ── Letterhead (hidden on screen, shown on print) ── */
+            .print-header {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                padding-bottom: 12px;
+                margin-bottom: 18px;
+                border-bottom: 2.5px solid #ff385c;
+            }
+            .print-logo { font-size: 28px; font-weight: 900; color: #ff385c !important; letter-spacing: -0.5px; }
+            .print-logo span { color: #222 !important; }
+            .print-meta { text-align: right; font-size: 11px; color: #555 !important; line-height: 1.8; }
+            .print-meta strong { color: #111 !important; font-size: 12px; }
+
+            /* ── Cards & tables ── */
+            .section-card, .listing-block, .notification-card {
+                box-shadow: none !important; border: 1px solid #ddd !important;
+                break-inside: avoid; margin-bottom: 12px !important; border-radius: 8px !important;
+            }
+            .notification-card { border-bottom: 1px solid #eee !important; border-radius: 0 !important; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #e0e0e0; padding: 8px 10px; }
+            th { background: #f9f9f9 !important; font-weight: 600; font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; }
+            .listing-img { width: 120px !important; min-height: 80px !important; }
+            .bookings-table-wrap { display: block !important; }
+            .bookings-section { page-break-inside: auto; }
+
+            /* ── Print footer ── */
+            .print-footer {
+                display: block !important; text-align: center;
+                margin-top: 28px; padding-top: 12px;
+                border-top: 1px solid #eee;
+                font-size: 10px; color: #aaa !important; letter-spacing: 0.3px;
+            }
+        }
+        /* admin listings extras */
+        @media print {
+            td:last-child, th:last-child { display: none !important; }
             body.print-single tbody tr { display: none !important; }
             body.print-single tbody tr.print-target { display: table-row !important; }
         }
     </style>
 </head>
 <body>
-<?php include 'sidebar.php'; ?>
+<?php include 'sidebar.php'; ?><!-- sidebar hidden on print -->
 <div class="main-content">
+
+    <!-- Print letterhead -->
+    <div class="print-header" style="display:none;">
+        <div class="print-logo">Stay<span>Hub</span></div>
+        <div class="print-meta">
+            <strong>Admin &mdash; Listings Report</strong><br>
+            <?php echo count($listings); ?> listing<?php echo count($listings)!=1?'s':''; ?> total<br>
+            Printed: <?php echo date('d/m/Y H:i'); ?>
+        </div>
+    </div>
+
     <div class="page-header">
         <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
             <div>
@@ -284,5 +346,9 @@ function printSingle(id) {
     window.print();
 }
 </script>
+
+    <div class="print-footer" style="display:none;">
+        StayHub Admin &bull; Listings Report &bull; Printed <?php echo date('d/m/Y \\a\\t H:i'); ?>
+    </div>
 </body>
 </html>
