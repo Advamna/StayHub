@@ -98,8 +98,8 @@ if ($days < 1) $days = 1;
 $total_price = $daily_price * $days;
 
 // ── Insert reservation ──
-// Payment deadline: 8 hours for 1-night stays, 48 hours for 2+ nights
-$payHours  = ($days === 1) ? 8 : 48;
+// Payment deadline: 8 hours for 1-2 night stays, 48 hours for 3+ nights
+$payHours  = ($days < 3) ? 8 : 48;
 $insertSql = "INSERT INTO reservations
               (listing_id, user_id, guest_name, guest_email, guest_phone, check_in, check_out, guests, total_price, status, created_at, expires_at)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', GETDATE(), DATEADD(HOUR, ?, GETDATE()))";
