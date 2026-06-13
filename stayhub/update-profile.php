@@ -28,18 +28,24 @@ if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
         exit();
     }
 
-    // ── Read raw bytes ──
-    $imageData = file_get_contents($_FILES['avatar']['tmp_name']);
+    // ── Save file to disk and store the filename in the DB ──
+    $phone     = trim($_POST['phone'] ?? '');
+    $ext       = pathinfo($_FILES['avatar']['name'], PATHINFO_EXTENSION);
+    $filename  = 'avatar_' . $user_id . '_' . time() . '.' . strtolower($ext);
+    $uploadDir = __DIR__ . '/uploads/avatars/';
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    $destPath = $uploadDir . $filename;
 
-    // ── Parameterised binary insert ──
-    $phone = trim($_POST['phone'] ?? '');
-    $sql = "UPDATE users SET name = ?, phone = ?, avatar = ? WHERE id = ?";
-    $params = [
-        $name,
-        $phone,
-        [ $imageData, SQLSRV_PARAM_IN, SQLSRV_PHPTYPE_STRING(SQLSRV_ENC_BINARY), SQLSRV_SQLTYPE_VARBINARY('max') ],
-        $user_id
-    ];
+    if (!move_uploaded_file($_FILES['avatar']['tmp_name'], $destPath)) {
+        header("Location: profile.php?error=upload_failed");
+        exit();
+    }
+
+    // Store only the relative filename — avoids VARCHAR truncation entirely
+    $sql    = "UPDATE users SET name = ?, phone = ?, avatar = ? WHERE id = ?";
+    $params = [$name, $phone, $filename, $user_id];
 
 } else {
     // No new image — update name and phone
