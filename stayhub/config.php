@@ -6,7 +6,7 @@
 
 sqlsrv_configure("WarningsReturnAsErrors", 0);
 
-$serverName = "DESKTOP-9LJFEUO\SQLEXPRESS";
+$serverName = "localhost\SQLEXPRESS";
 
 $connectionInfo = array(
     "Database"               => "new_stayhub",
