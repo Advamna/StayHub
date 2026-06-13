@@ -16,7 +16,8 @@ if (!$reservation_id) {
     exit;
 }
 
-$sql = "SELECT r.*, l.title, l.location, i.image_url 
+$sql = "SELECT r.*, l.title, l.location, i.image_url,
+                r.expires_at
         FROM reservations r
         JOIN listings l ON r.listing_id = l.id
         LEFT JOIN images i ON l.id = i.listing_id AND i.is_primary = 1
@@ -34,6 +35,21 @@ $date1 = ($reservation['check_in'] instanceof DateTime) ? $reservation['check_in
 $date2 = ($reservation['check_out'] instanceof DateTime) ? $reservation['check_out'] : new DateTime($reservation['check_out']);
 $interval = $date1->diff($date2);
 $days = $interval->days > 0 ? $interval->days : 1;
+
+// Addon 3: compute seconds remaining until auto-cancel
+$expiresAt = null;
+$expiresTs = null;
+if (!empty($reservation['expires_at'])) {
+    $expiresAt = ($reservation['expires_at'] instanceof DateTime)
+        ? $reservation['expires_at']
+        : new DateTime($reservation['expires_at']);
+    $expiresTs = $expiresAt->getTimestamp();
+    // If already expired redirect to cancelled page
+    if ($expiresTs < time()) {
+        header('Location: my-rentals.php?error=expired');
+        exit;
+    }
+}
 
 $total_price = $reservation['total_price'];
 $cleaning_fee = 150;
@@ -66,6 +82,31 @@ $imgSrc = !empty($reservation['image_url'])
         .back-link { font-size: 14px; color: #717171; text-decoration: none; display: flex; align-items: center; gap: 6px; }
         .back-link:hover { color: #222; }
         
+        /* ── Addon 3: Countdown banner ── */
+        .countdown-banner {
+            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+            border: 1.5px solid #ffc107;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #856404;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .countdown-banner .timer {
+            font-weight: 700;
+            font-size: 16px;
+            color: #d63031;
+            margin-top: 3px;
+        }
+        .countdown-banner.urgent {
+            background: linear-gradient(135deg, #fdecea, #ffcccc);
+            border-color: #ff385c;
+            color: #b71c1c;
+        }
+        .countdown-banner.urgent .timer { color: #c0392b; }
         .checkout-container { max-width: 1000px; margin: 40px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
         @media (max-width: 768px) { .checkout-container { grid-template-columns: 1fr; } }
         
@@ -101,12 +142,49 @@ $imgSrc = !empty($reservation['image_url'])
 </head>
 <body>
 
+
 <nav class="stays-nav">
     <a class="stays-logo" href="index.php">StayHub</a>
     <a class="back-link" href="my-rentals.php"><i class="fas fa-arrow-left"></i> Cancel Payment</a>
 </nav>
 
 <div class="checkout-container">
+
+        <!-- ── Addon 3: Payment countdown timer ── -->
+        <?php if ($expiresTs): ?>
+        <div class="countdown-banner" id="countdownBanner">
+            <i class="fas fa-clock" style="font-size:18px;"></i>
+            <div>
+                <div style="font-size:12px;margin-bottom:2px;">Complete payment before your reservation expires</div>
+                <div class="timer" id="countdownTimer">Calculating…</div>
+            </div>
+        </div>
+        <script>
+        (function() {
+            var expiresAt = <?php echo (int)$expiresTs; ?> * 1000;
+            var banner    = document.getElementById('countdownBanner');
+            var timerEl   = document.getElementById('countdownTimer');
+            function tick() {
+                var remaining = expiresAt - Date.now();
+                if (remaining <= 0) {
+                    timerEl.textContent = '⏰ Reservation expired. Redirecting…';
+                    if (banner) banner.classList.add('urgent');
+                    setTimeout(function() { window.location.href = 'my-rentals.php?error=expired'; }, 2000);
+                    return;
+                }
+                var totalSec = Math.floor(remaining / 1000);
+                var h  = Math.floor(totalSec / 3600);
+                var m  = Math.floor((totalSec % 3600) / 60);
+                var s  = totalSec % 60;
+                timerEl.textContent = 'You have ' + h + 'h ' + (m < 10 ? '0' : '') + m + 'm ' + (s < 10 ? '0' : '') + s + 's left to pay';
+                if (remaining < 3600000 && banner) banner.classList.add('urgent');
+                setTimeout(tick, 1000);
+            }
+            tick();
+        })();
+        </script>
+        <?php endif; ?>
+
     <div class="checkout-box">
         <h2>Payment Details</h2>
         <p style="color: #717171; font-size: 14px; margin-top: -15px; margin-bottom: 20px;">
