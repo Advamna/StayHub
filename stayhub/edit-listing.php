@@ -316,7 +316,7 @@ $allAmenities = [
                 </div>
                 <div>
                     <label>Max Guests</label>
-                    <input type="number" name="voyageur_count" value="<?php echo (int)$data['voyageur_count']; ?>" min="1" required>
+                    <input type="number" name="max_guests" value="<?php echo (int)$data['max_guests']; ?>" min="1" required>
                 </div>
                 <div>
                     <label>Beds</label>
