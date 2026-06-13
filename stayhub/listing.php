@@ -44,32 +44,47 @@ $img_stmt  = sqlsrv_query($conn, $img_sql, [$id]);
 $img_row   = sqlsrv_fetch_array($img_stmt, SQLSRV_FETCH_ASSOC);
 $display_image = $img_row ? $img_row['image_url'] : 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200';
 
-// ── Feature 8: Fetch reviews ──────────────────────────────
+// ── Feature 8 + New: Fetch approved reviews ──────────────
 $rev_sql  = "SELECT rv.*, u.name AS ReviewerName
              FROM reviews rv
              JOIN users u ON rv.user_id = u.id
-             WHERE rv.listing_id = ?
-             ORDER BY rv.created_at DESC";
+             WHERE rv.listing_id = ? AND rv.status = 'approved'
+             ORDER BY rv.is_featured DESC, rv.created_at DESC";
 $rev_stmt = sqlsrv_query($conn, $rev_sql, [$id]);
 $reviews  = [];
 if ($rev_stmt) {
     while ($r = sqlsrv_fetch_array($rev_stmt, SQLSRV_FETCH_ASSOC)) $reviews[] = $r;
 }
 
-// Compute real average rating
-$avg_rating  = count($reviews) ? array_sum(array_column($reviews, 'rating')) / count($reviews) : null;
+// ── Featured (Best) review ──────────────────────────────
+$featuredReview = null;
+foreach ($reviews as $rv) {
+    if (!empty($rv['is_featured'])) { $featuredReview = $rv; break; }
+}
+// Fallback: highest-rated approved review
+if (!$featuredReview && !empty($reviews)) {
+    usort($reviews, fn($a,$b) => $b['rating'] <=> $a['rating']);
+    // Re-sort: featured first, then by date (restore original order for display)
+    usort($reviews, fn($a,$b) => $b['created_at'] <=> $a['created_at']);
+}
+
+// Compute real average rating (approved only)
+$avg_rating   = count($reviews) ? array_sum(array_column($reviews, 'rating')) / count($reviews) : null;
 $review_count = count($reviews);
 
-// Can current user review? (they must have a reservation for this listing)
-$canReview      = false;
-$reviewResId    = null;
+// Can current user review?
+// Must have a CONFIRMED reservation with check_out in the past, not already reviewed
+$canReview       = false;
+$reviewResId     = null;
 $alreadyReviewed = false;
 if (isset($_SESSION['user_id'])) {
-    $canRevSql  = "SELECT r.id FROM reservations r WHERE r.listing_id = ? AND r.user_id = ? AND r.status IN ('confirmed','pending')";
+    $canRevSql  = "SELECT r.id FROM reservations r
+                   WHERE r.listing_id = ? AND r.user_id = ? AND r.status = 'confirmed'
+                     AND r.check_out <= CAST(GETDATE() AS DATE)
+                   ORDER BY r.check_out DESC";
     $canRevStmt = sqlsrv_query($conn, $canRevSql, [$id, $_SESSION['user_id']]);
     if ($canRevStmt && $canRevRow = sqlsrv_fetch_array($canRevStmt, SQLSRV_FETCH_ASSOC)) {
         $reviewResId = (int)$canRevRow['id'];
-        // Check they haven't reviewed yet
         $dupSql  = "SELECT id FROM reviews WHERE reservation_id = ? AND user_id = ?";
         $dupStmt = sqlsrv_query($conn, $dupSql, [$reviewResId, $_SESSION['user_id']]);
         if ($dupStmt && sqlsrv_fetch_array($dupStmt, SQLSRV_FETCH_ASSOC)) {
@@ -289,8 +304,91 @@ if (isset($_SESSION['user_id'])) {
         .cal-legend span { display:flex; align-items:center; gap:5px; }
         .dot { width:10px; height:10px; border-radius:3px; }
 
-        /* ── Feature 8: Reviews section ── */
+        /* ── Feature 8 + Best Review: Reviews section ── */
         .reviews-section { margin-top: 0; }
+
+        /* Featured / Best Review */
+        .best-review-section { margin-bottom: 28px; }
+        .best-review-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: linear-gradient(135deg, #ff385c, #ff6b85);
+            color: #fff; padding: 5px 14px; border-radius: 20px;
+            font-size: 12px; font-weight: 700; margin-bottom: 14px;
+            letter-spacing: 0.3px;
+        }
+        .best-review-card {
+            background: linear-gradient(135deg, #fff8f9 0%, #fff 100%);
+            border: 1.5px solid #ffc0cc; border-radius: 16px;
+            padding: 24px; position: relative; overflow: hidden;
+        }
+        .best-review-card::before {
+            content: '"'; position: absolute; top: -10px; left: 16px;
+            font-size: 100px; color: #ffc0cc; line-height: 1;
+            font-family: Georgia, serif; pointer-events: none;
+        }
+        .best-review-card .reviewer { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+        .best-review-card .reviewer-avatar {
+            width:44px; height:44px; border-radius:50%;
+            background: linear-gradient(135deg, #ff385c, #ff6b85);
+            color:#fff; display:flex; align-items:center; justify-content:center;
+            font-size:18px; font-weight:700; flex-shrink:0;
+        }
+        .best-review-card .reviewer-name { font-weight:700; font-size:15px; }
+        .best-review-card .reviewer-meta { font-size:12px; color:#717171; margin-top:2px; }
+        .best-review-card .review-title-b { font-size:16px; font-weight:700; margin-bottom:8px; color:#222; }
+        .best-review-card .review-comment { font-size:14px; color:#444; line-height:1.7; }
+        .best-review-photos { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+        .best-review-photos img { width:72px; height:72px; object-fit:cover; border-radius:10px; border:1px solid #eee; }
+        .divider-label {
+            text-align:center; margin: 24px 0 20px;
+            position:relative; font-size:12px; color:#aaa; font-weight:600; letter-spacing:.5px;
+            text-transform: uppercase;
+        }
+        .divider-label::before, .divider-label::after {
+            content:''; position:absolute; top:50%; width:40%; height:1px; background:#eee;
+        }
+        .divider-label::before { left:0; }
+        .divider-label::after  { right:0; }
+
+        /* Review reminder float */
+        #reviewReminder {
+            position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+            background: #fff; border-radius: 16px;
+            border: 1.5px solid #ffc0cc;
+            box-shadow: 0 8px 32px rgba(255,56,92,.18), 0 2px 8px rgba(0,0,0,.08);
+            display: flex; align-items: center; gap: 14px;
+            padding: 16px 20px; max-width: 340px;
+            animation: slideInRight .4s cubic-bezier(.16,1,.3,1);
+        }
+        @keyframes slideInRight {
+            from { opacity:0; transform:translateX(60px) scale(.95); }
+            to   { opacity:1; transform:translateX(0)   scale(1);    }
+        }
+        #reviewReminder.hiding {
+            animation: slideOutRight .3s ease forwards;
+        }
+        @keyframes slideOutRight {
+            to { opacity:0; transform:translateX(70px); }
+        }
+        #reviewReminder .rr-icon {
+            width:44px; height:44px; background:#fff0f3; border-radius:12px;
+            display:flex; align-items:center; justify-content:center;
+            color:#ff385c; font-size:20px; flex-shrink:0;
+        }
+        #reviewReminder .rr-body { flex:1; }
+        #reviewReminder .rr-title { font-size:13px; font-weight:700; color:#222; margin-bottom:3px; }
+        #reviewReminder .rr-sub   { font-size:12px; color:#717171; line-height:1.4; }
+        #reviewReminder .rr-link  {
+            display:inline-block; margin-top:8px; background:#ff385c; color:#fff;
+            padding:6px 14px; border-radius:8px; font-size:12px; font-weight:700;
+            text-decoration:none;
+        }
+        #reviewReminder .rr-link:hover { background:#e0314f; }
+        #reviewReminder .rr-close {
+            background:none; border:none; font-size:16px; color:#bbb;
+            cursor:pointer; padding:0; flex-shrink:0; align-self:flex-start;
+        }
+        #reviewReminder .rr-close:hover { color:#333; }
         .reviews-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
         .avg-rating-big { display:flex; align-items:center; gap:8px; font-size:22px; font-weight:700; }
         .avg-rating-big .stars i { color:#ff385c; font-size:18px; }
@@ -439,7 +537,7 @@ if (isset($_SESSION['user_id'])) {
             </div>
             <hr class="divider">
 
-            <!-- ── Feature 8: Reviews Section ── -->
+            <!-- ── Reviews Section ── -->
             <div class="reviews-section">
                 <div class="reviews-header">
                     <div class="avg-rating-big">
@@ -453,7 +551,54 @@ if (isset($_SESSION['user_id'])) {
                     </div>
                 </div>
 
+                <!-- ── Feature 4: Best / Featured Review ── -->
+                <?php if ($featuredReview): ?>
+                <div class="best-review-section">
+                    <div class="best-review-badge"><i class="fas fa-star"></i> Best Review</div>
+                    <div class="best-review-card">
+                        <div class="reviewer">
+                            <div class="reviewer-avatar"><?php echo strtoupper(substr($featuredReview['ReviewerName'], 0, 1)); ?></div>
+                            <div>
+                                <div class="reviewer-name"><?php echo htmlspecialchars($featuredReview['ReviewerName']); ?></div>
+                                <div class="reviewer-meta">
+                                    <?php for ($s=1;$s<=5;$s++): ?>
+                                    <i class="fas fa-star" style="color:<?php echo $s<=$featuredReview['rating']?'#ff385c':'#ddd';?>;font-size:12px;"></i>
+                                    <?php endfor; ?>
+                                    · <?php echo $featuredReview['created_at'] instanceof DateTime ? $featuredReview['created_at']->format('M Y') : substr($featuredReview['created_at'],0,7); ?>
+                                </div>
+                            </div>
+                        </div>
+                        <?php if (!empty($featuredReview['title'])): ?>
+                        <div class="review-title-b"><?php echo htmlspecialchars($featuredReview['title']); ?></div>
+                        <?php endif; ?>
+                        <div class="review-comment"><?php echo nl2br(htmlspecialchars($featuredReview['comment'] ?? '')); ?></div>
+                        <?php if (!empty($featuredReview['photos'])): ?>
+                        <?php $fPhotos = json_decode($featuredReview['photos'], true) ?: []; ?>
+                        <?php if (!empty($fPhotos)): ?>
+                        <div class="best-review-photos">
+                            <?php foreach (array_slice($fPhotos,0,5) as $ph): ?>
+                            <img src="<?php echo htmlspecialchars($ph); ?>" alt="Review photo">
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php elseif (empty($reviews)): ?>
+                <div style="background:#f9f9f9;border-radius:12px;padding:24px;text-align:center;margin-bottom:20px;color:#717171;font-size:14px;">
+                    <i class="fas fa-star" style="font-size:28px;color:#ddd;display:block;margin-bottom:8px;"></i>
+                    No featured review yet. Be the first to leave a review!
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($reviews) && count($reviews) > ($featuredReview ? 1 : 0)): ?>
+                <?php if ($featuredReview): ?>
+                <div class="divider-label">All Guest Reviews</div>
+                <?php endif; ?>
+                <?php endif; ?>
+
                 <?php foreach ($reviews as $rev): ?>
+                <?php if ($featuredReview && $rev['id'] === $featuredReview['id']) continue; /* skip featured in main list */ ?>
                 <div class="review-card">
                     <div class="reviewer">
                         <div class="reviewer-avatar"><?php echo strtoupper(substr($rev['ReviewerName'], 0, 1)); ?></div>
@@ -960,5 +1105,59 @@ function calPrev() { calDate.setMonth(calDate.getMonth() - 1); renderCal(); }
 function calNext() { calDate.setMonth(calDate.getMonth() + 1); renderCal(); }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<?php
+// ── Feature 1: Floating Review Reminder ──────────────────
+// Show only to logged-in users who have completed stays NOT on this page if they dismissed
+$floatReminder = null;
+if (isset($_SESSION['user_id']) && !isset($_GET['submit_review'])) {
+    // Find most recent completed, confirmed reservation not yet reviewed (any listing)
+    $frSql = "SELECT r.id AS res_id, r.listing_id, r.check_out, l.title AS listing_title
+              FROM reservations r
+              JOIN listings l ON r.listing_id = l.id
+              WHERE r.user_id = ? AND r.status = 'confirmed'
+                AND r.check_out <= CAST(GETDATE() AS DATE)
+                AND NOT EXISTS (
+                    SELECT 1 FROM reviews rv
+                    WHERE rv.reservation_id = r.id AND rv.user_id = r.user_id
+                )
+              ORDER BY r.check_out DESC";
+    $frStmt = sqlsrv_query($conn, $frSql, [(int)$_SESSION['user_id']]);
+    if ($frStmt) {
+        $floatReminder = sqlsrv_fetch_array($frStmt, SQLSRV_FETCH_ASSOC);
+    }
+}
+?>
+<?php if ($floatReminder && (int)$floatReminder['listing_id'] !== $id): ?>
+<div id="reviewReminder" data-res-id="<?php echo $floatReminder['res_id']; ?>">
+    <div class="rr-icon"><i class="fas fa-star"></i></div>
+    <div class="rr-body">
+        <div class="rr-title">How was your stay?</div>
+        <div class="rr-sub">Leave a review about <strong><?php echo htmlspecialchars($floatReminder['listing_title']); ?></strong></div>
+        <a class="rr-link" href="submit-review.php?reservation_id=<?php echo $floatReminder['res_id']; ?>">
+            Leave a review <i class="fas fa-arrow-right"></i>
+        </a>
+    </div>
+    <button class="rr-close" onclick="dismissReminder(<?php echo $floatReminder['res_id']; ?>)" title="Dismiss">✕</button>
+</div>
+<script>
+(function() {
+    var resId = <?php echo $floatReminder['res_id']; ?>;
+    var key   = 'rr_dismissed_' + resId;
+    if (localStorage.getItem(key)) {
+        var el = document.getElementById('reviewReminder');
+        if (el) el.style.display = 'none';
+    }
+})();
+function dismissReminder(resId) {
+    localStorage.setItem('rr_dismissed_' + resId, '1');
+    var el = document.getElementById('reviewReminder');
+    if (!el) return;
+    el.classList.add('hiding');
+    setTimeout(function() { el.style.display = 'none'; }, 300);
+}
+</script>
+<?php endif; ?>
+
 </body>
 </html>
