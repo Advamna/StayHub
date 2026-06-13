@@ -571,19 +571,8 @@ $listing_ids = array_column($listings, 'id');
     </div>
 </nav>
 
-<!-- Print letterhead -->
-<div class="print-header" style="display:none;">
-    <div class="print-logo">Stay<span>Hub</span></div>
-    <div class="print-meta">
-        <strong>My Listings</strong><br>
-        <?php echo $totalListings; ?> listing<?php echo $totalListings!=1?'s':''; ?> &bull; <?php echo $totalBookings; ?> booking<?php echo $totalBookings!=1?'s':''; ?><br>
-        Printed: <?php echo date('d/m/Y H:i'); ?>
-    </div>
-</div>
-
-
 <?php
-// Compute totals for stats bar
+// Compute totals for stats bar (must come before print-header uses these vars)
 $totalListings = count($listings);
 $totalBookings = 0;
 $totalRevenue  = 0;
@@ -594,6 +583,16 @@ foreach ($listings as $l) {
     $totalActive++;
 }
 ?>
+
+<!-- Print letterhead (hidden on screen, shown on print) -->
+<div class="print-header" style="display:none;">
+    <div class="print-logo">Stay<span>Hub</span></div>
+    <div class="print-meta">
+        <strong>My Listings</strong><br>
+        <?php echo $totalListings; ?> listing<?php echo $totalListings!=1?'s':''; ?> &bull; <?php echo $totalBookings; ?> booking<?php echo $totalBookings!=1?'s':''; ?><br>
+        Printed: <?php echo date('d/m/Y H:i'); ?>
+    </div>
+</div>
 
 <!-- Page Header -->
 <div class="page-header">
