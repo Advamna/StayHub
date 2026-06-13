@@ -16,7 +16,8 @@ if (isset($_SESSION['user_id'])) {
         $isHost = (int)$user_data['is_host'];
         $_SESSION['is_host'] = $isHost;
         if (!empty($user_data['avatar'])) {
-            $userAvatar = 'data:image/jpeg;base64,' . base64_encode($user_data['avatar']);
+            // avatar stores a filename (e.g. avatar_3_1718123456.jpg) not raw binary
+            $userAvatar = 'uploads/avatars/' . htmlspecialchars($user_data['avatar']);
         }
     }
 
