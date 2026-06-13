@@ -10,7 +10,9 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 
-$sql  = "SELECT l.id, l.title, l.location, l.price, l.rating, l.reviews,
+$sql  = "SELECT l.id, l.title, l.location, l.price,
+                (SELECT AVG(CAST(r.rating AS FLOAT)) FROM reviews r WHERE r.listing_id = l.id AND r.status = 'approved') AS rating,
+                (SELECT COUNT(*) FROM reviews r WHERE r.listing_id = l.id AND r.status = 'approved') AS reviews,
                 i.image_url AS MainPhoto
          FROM wishlists w
          JOIN listings l ON w.listing_id = l.id
