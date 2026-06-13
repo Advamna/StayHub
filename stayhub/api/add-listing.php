@@ -7,14 +7,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_SESSION['user_id'])) {
     $title     = trim($_POST['title']);
     $location  = trim($_POST['location']);
     $price     = (float)$_POST['price'];
-    $voyageurs = (int)$_POST['voyageur_count'];
+    $voyageurs = (int)$_POST['max_guests'];
     $beds      = (int)$_POST['bed_count'];
     $bedrooms  = (int)($_POST['bedrooms']  ?? 1);
     $bathrooms = (int)($_POST['bathrooms'] ?? 1);
     $desc      = trim($_POST['description']);
 
-    // Sync both guests + voyageur_count so booking checks work correctly
-    $sql = "INSERT INTO listings (user_id, title, description, location, price, voyageur_count, guests, bed_count, bedrooms, bathrooms, status) 
+    // Sync both guests + max_guests so booking checks work correctly
+    $sql = "INSERT INTO listings (user_id, title, description, location, price, max_guests, guests, bed_count, bedrooms, bathrooms, status) 
             OUTPUT INSERTED.id
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')";
 
@@ -174,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_SESSION['user_id'])) {
                     <input type="number" name="bed_count" min="1" value="1" required></div>
             </div>
             <div class="fg"><label><i class="fas fa-users"></i> Max Guests</label>
-                <input type="number" name="voyageur_count" min="1" value="2" required></div>
+                <input type="number" name="max_guests" min="1" value="2" required></div>
         </div>
 
         <!-- Amenities -->
