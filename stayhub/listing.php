@@ -82,6 +82,18 @@ if (isset($_SESSION['user_id'])) {
 
 $isHost = isset($_SESSION['user_id']) && (int)$_SESSION['user_id'] === (int)$listing['HostId'];
 
+// ── Addon 1: Pre-fetch logged-in user data for form pre-fill ──
+$prefill = ['name' => '', 'email' => '', 'phone' => ''];
+if (isset($_SESSION['user_id'])) {
+    $pfSql  = "SELECT name, email, phone FROM users WHERE id = ?";
+    $pfStmt = sqlsrv_query($conn, $pfSql, [(int)$_SESSION['user_id']]);
+    if ($pfStmt && $pfRow = sqlsrv_fetch_array($pfStmt, SQLSRV_FETCH_ASSOC)) {
+        $prefill['name']  = htmlspecialchars($pfRow['name']  ?? '');
+        $prefill['email'] = htmlspecialchars($pfRow['email'] ?? '');
+        $prefill['phone'] = htmlspecialchars($pfRow['phone'] ?? '');
+    }
+}
+
 // Wishlist status
 $isSaved = false;
 if (isset($_SESSION['user_id'])) {
@@ -100,6 +112,43 @@ if (isset($_SESSION['user_id'])) {
     <link rel="icon" type="image/png" href="StayHubIcon.png">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        /* Flatpickr booked-date highlight */
+        .flatpickr-day.booked-date {
+            background: #ffe0e6 !important;
+            color: #c0392b !important;
+            border-color: #ffb3be !important;
+            text-decoration: line-through;
+            pointer-events: none;
+        }
+        .flatpickr-day.booked-date:hover {
+            background: #ffe0e6 !important;
+        }
+        /* Countdown timer banner */
+        .countdown-banner {
+            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+            border: 1.5px solid #ffc107;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #856404;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .countdown-banner .timer {
+            font-weight: 700;
+            font-size: 15px;
+            color: #d63031;
+        }
+        .countdown-banner.urgent {
+            background: linear-gradient(135deg, #fdecea, #ffcccc);
+            border-color: #ff385c;
+            color: #b71c1c;
+        }
+    </style>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; color: #222; }
         .navbar { display:flex; justify-content:space-between; align-items:center; padding:15px 10%; border-bottom:1px solid #eee; position:sticky; top:0; background:#fff; z-index:100; }
@@ -519,19 +568,33 @@ if (isset($_SESSION['user_id'])) {
                 <!-- Guest name -->
                 <div class="field-group">
                     <label><i class="fas fa-user"></i> Full name</label>
-                    <input type="text" name="guest_name" placeholder="John Doe" required autocomplete="name">
+                    <input type="text" name="guest_name"
+                           value="<?php echo $prefill['name']; ?>"
+                           placeholder="John Doe" required autocomplete="name">
                 </div>
 
                 <!-- Email -->
                 <div class="field-group">
                     <label><i class="fas fa-envelope"></i> Email address</label>
-                    <input type="email" name="guest_email" placeholder="you@example.com" required autocomplete="email">
+                    <input type="email" name="guest_email"
+                           value="<?php echo $prefill['email']; ?>"
+                           placeholder="you@example.com" required autocomplete="email"
+                           <?php echo $prefill['email'] ? 'readonly style="background:#f5f5f5;cursor:not-allowed;color:#555;"' : ''; ?>>
+                    <?php if ($prefill['email']): ?>
+                    <small style="color:#888;font-size:11px;margin-top:3px;display:block;">
+                        <i class="fas fa-lock" style="font-size:10px;"></i> Linked to your account
+                    </small>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Phone -->
                 <div class="field-group">
                     <label><i class="fas fa-phone"></i> Phone number</label>
-                    <input type="tel" name="guest_phone" placeholder="+212 6 00 00 00 00" required autocomplete="tel">
+                    <input type="tel" name="guest_phone"
+                           value="<?php echo $prefill['phone']; ?>"
+                           placeholder="+212 6 00 00 00 00"
+                           <?php echo $prefill['phone'] ? '' : 'required'; ?>
+                           autocomplete="tel">
                 </div>
 
                 <hr class="modal-divider">
@@ -624,26 +687,109 @@ if (isset($_SESSION['user_id'])) {
 
 // ── Booking modal ──────────────────────────────────────────
 var NIGHTLY_PRICE = <?php echo (int)$price; ?>;
+var LISTING_ID    = <?php echo (int)$id; ?>;
 var openBtn  = document.getElementById('openModal');
 var resModal = document.getElementById('resModal');
+var fpCheckIn  = null;
+var fpCheckOut = null;
+var bookedRanges = [];
 
+// ── ADDON 2: Fetch blocked dates and init flatpickr ──────
+function loadBlockedDatesAndInit() {
+    fetch('api/get-booked-dates.php?listing_id=' + LISTING_ID)
+        .then(function(r) { return r.json(); })
+        .then(function(ranges) {
+            bookedRanges = ranges || [];
+            var disabledDates = buildDisabledDates(bookedRanges);
+            initFlatpickr(disabledDates);
+        })
+        .catch(function() {
+            // Fallback: init without blocked dates
+            initFlatpickr([]);
+        });
+}
+
+function buildDisabledDates(ranges) {
+    // Expand each range into individual date strings YYYY-MM-DD
+    var disabled = [];
+    ranges.forEach(function(range) {
+        var start = new Date(range.start + 'T00:00:00');
+        var end   = new Date(range.end   + 'T00:00:00');
+        var cur   = new Date(start);
+        while (cur <= end) {
+            disabled.push(cur.toISOString().split('T')[0]);
+            cur.setDate(cur.getDate() + 1);
+        }
+    });
+    return disabled;
+}
+
+function initFlatpickr(disabledDates) {
+    var today    = new Date();
+    today.setHours(0,0,0,0);
+    var tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+
+    var commonOpts = {
+        dateFormat   : 'Y-m-d',
+        minDate      : 'today',
+        disableMobile: false,
+        onDayCreate  : function(dObj, dStr, fp, dayElem) {
+            var d = dayElem.dateObj;
+            if (!d) return;
+            var ds = d.toISOString().split('T')[0];
+            if (disabledDates.indexOf(ds) !== -1) {
+                dayElem.classList.add('booked-date');
+                dayElem.title = 'Already booked';
+            }
+        }
+    };
+
+    // Destroy existing if reinitialising
+    if (fpCheckIn)  { fpCheckIn.destroy();  fpCheckIn  = null; }
+    if (fpCheckOut) { fpCheckOut.destroy(); fpCheckOut = null; }
+
+    fpCheckIn = flatpickr('#checkInField', Object.assign({}, commonOpts, {
+        minDate   : 'today',
+        onChange  : function(selectedDates, dateStr) {
+            if (!dateStr) return;
+            // Set checkout minDate to day after check-in
+            var next = new Date(dateStr + 'T00:00:00');
+            next.setDate(next.getDate() + 1);
+            fpCheckOut.set('minDate', next.toISOString().split('T')[0]);
+            // Clear checkout if it's now invalid
+            if (fpCheckOut.selectedDates[0] && fpCheckOut.selectedDates[0] <= selectedDates[0]) {
+                fpCheckOut.clear();
+            }
+            updatePreview();
+        }
+    }));
+
+    fpCheckOut = flatpickr('#checkOutField', Object.assign({}, commonOpts, {
+        minDate  : tomorrow,
+        onChange : function() { updatePreview(); }
+    }));
+}
+
+// ── Modal open/close ─────────────────────────────────────
 if (openBtn) openBtn.addEventListener('click', function() {
     resModal.style.display = 'block';
     document.body.style.overflow = 'hidden';
+    // Load blocked dates each time modal opens (real-time data)
+    loadBlockedDatesAndInit();
 });
 function closeResModal() {
     if (resModal) resModal.style.display = 'none';
     document.body.style.overflow = '';
 }
 
-// Live price preview with breakdown
-var checkIn  = document.getElementById('checkInField');
-var checkOut = document.getElementById('checkOutField');
-
+// ── Live price preview ───────────────────────────────────
 function updatePreview() {
-    var box = document.getElementById('pricePreview');
-    if (!checkIn || !checkOut || !checkIn.value || !checkOut.value) { box.style.display = 'none'; return; }
-    var d1     = new Date(checkIn.value), d2 = new Date(checkOut.value);
+    var box      = document.getElementById('pricePreview');
+    var ciVal    = document.getElementById('checkInField').value;
+    var coVal    = document.getElementById('checkOutField').value;
+    if (!ciVal || !coVal) { box.style.display = 'none'; return; }
+    var d1     = new Date(ciVal + 'T00:00:00');
+    var d2     = new Date(coVal + 'T00:00:00');
     var nights = Math.round((d2 - d1) / 86400000);
     if (nights < 1) { box.style.display = 'none'; return; }
     var base    = NIGHTLY_PRICE * nights;
@@ -655,17 +801,7 @@ function updatePreview() {
     document.getElementById('ppService').textContent = service.toLocaleString() + ' MAD';
     document.getElementById('ppTotal').textContent   = total.toLocaleString() + ' MAD';
     box.style.display = 'block';
-    // enforce checkout min
-    var nextDay = new Date(checkIn.value);
-    nextDay.setDate(nextDay.getDate() + 1);
-    checkOut.min = nextDay.toISOString().split('T')[0];
 }
-
-if (checkIn)  checkIn.addEventListener('change', function() {
-    if (checkOut.value && checkOut.value <= this.value) checkOut.value = '';
-    updatePreview();
-});
-if (checkOut) checkOut.addEventListener('change', updatePreview);
 
 // Submit loading state
 var reserveForm = document.getElementById('reserveForm');
@@ -823,5 +959,6 @@ function renderCal() {
 function calPrev() { calDate.setMonth(calDate.getMonth() - 1); renderCal(); }
 function calNext() { calDate.setMonth(calDate.getMonth() + 1); renderCal(); }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </body>
 </html>
