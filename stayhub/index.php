@@ -276,7 +276,11 @@ $filter_qs = http_build_query(array_filter([
                             <a href="admin/index.php" style="color:#ff385c;font-weight:bold;"><i class="fas fa-shield-alt"></i> Admin Panel</a><hr>
                         <?php endif; ?>
                         <a href="my-rentals.php">My Stays</a>
-                        <a href="wishlist.php"><i class="fas fa-heart"></i> Saved</a>
+                        <a href="wishlist.php"><i class="fas fa-heart"></i> Saved
+                            <?php if (!empty($savedIds)): ?>
+                            <span style="background:#ff385c;color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:4px;"><?php echo count($savedIds); ?></span>
+                            <?php endif; ?>
+                        </a>
                         <a href="profile.php">Profile</a>
                         <?php if (!empty($_SESSION['is_host'])): ?>
                             <hr>
@@ -463,32 +467,77 @@ function openSignup() {
 }
 function closeAuthModal() { document.getElementById('authModal').style.display = 'none'; }
 
-// Feature 13: Wishlist toggle (AJAX)
+// ── Issue 3 Fix: Wishlist toggle (AJAX for logged-in, localStorage for guests) ──
+var _wishlistInFlight = {};
+
 function toggleWish(e, btn, listingId) {
     e.stopPropagation();
+    if (_wishlistInFlight[listingId]) return; // prevent double-click
+    _wishlistInFlight[listingId] = true;
+
+    const wasSaved = btn.classList.contains('saved');
+    // Optimistic UI update
+    btn.classList.toggle('saved', !wasSaved);
+    btn.title = !wasSaved ? 'Remove from saved' : 'Save listing';
+
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const isLoggedIn = csrfMeta && csrfMeta.content && csrfMeta.content.length > 0;
+
+    if (!isLoggedIn) {
+        // Guest: use localStorage
+        var guestWish = JSON.parse(localStorage.getItem('stayhub_wishlist') || '[]');
+        var idx = guestWish.indexOf(listingId);
+        if (wasSaved) {
+            if (idx > -1) guestWish.splice(idx, 1);
+        } else {
+            if (idx === -1) guestWish.push(listingId);
+        }
+        localStorage.setItem('stayhub_wishlist', JSON.stringify(guestWish));
+        delete _wishlistInFlight[listingId];
+        openLogin(); // Prompt login so they know it's guest-only
+        return;
+    }
+
     const fd = new FormData();
     fd.append('listing_id', listingId);
-    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
     if (csrfMeta && csrfMeta.content) fd.append('csrf_token', csrfMeta.content);
-    // Optimistic UI update
-    const wasSaved = btn.classList.contains('saved');
-    btn.classList.toggle('saved', !wasSaved);
+
     fetch('api/toggle-wishlist.php', { method: 'POST', body: fd })
-        .then(r => r.json())
+        .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
         .then(function(data) {
-            if (data.message === 'Login required') { btn.classList.toggle('saved', wasSaved); openLogin(); return; }
+            if (data.redirect || (data.message && data.message === 'Login required')) {
+                btn.classList.toggle('saved', wasSaved);
+                btn.title = wasSaved ? 'Remove from saved' : 'Save listing';
+                openLogin();
+                return;
+            }
             if (data.success) {
                 btn.classList.toggle('saved', data.saved);
                 btn.title = data.saved ? 'Remove from saved' : 'Save listing';
+                // Update saved count badge in dropdown
+                var badge = document.querySelector('.dropdown-content a[href="wishlist.php"] span');
+                if (badge) {
+                    var cur = parseInt(badge.textContent) || 0;
+                    var next = data.saved ? cur + 1 : Math.max(0, cur - 1);
+                    badge.textContent = next;
+                    badge.style.display = next > 0 ? '' : 'none';
+                }
             } else {
-                // Revert on failure
                 btn.classList.toggle('saved', wasSaved);
-                console.error('Wishlist error:', data.message, data.debug || '');
+                btn.title = wasSaved ? 'Remove from saved' : 'Save listing';
+                console.error('[StayHub] Wishlist error:', data.message, data.debug || '');
             }
         })
         .catch(function(err) {
             btn.classList.toggle('saved', wasSaved);
-            console.error('Wishlist network error:', err);
+            btn.title = wasSaved ? 'Remove from saved' : 'Save listing';
+            console.error('[StayHub] Wishlist network error:', err);
+        })
+        .finally(function() {
+            delete _wishlistInFlight[listingId];
         });
 }
 </script>
