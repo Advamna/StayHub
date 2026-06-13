@@ -104,6 +104,8 @@ $issued_date = $invData && !empty($invData['issued_at'])
 
 $hasPaymentData  = !empty($payData);
 $showPaymentWarn = isset($_GET['warn']) && $_GET['warn'] === 'payment_log';
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
