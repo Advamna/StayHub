@@ -14,10 +14,10 @@ $sql = "SELECT name, email, phone, avatar FROM users WHERE id = ?";
 $stmt = sqlsrv_query($conn, $sql, array($user_id));
 $user = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 
-// 2. Logic to convert Binary DB data to a viewable Image
+// 2. Build the avatar display URL from the stored filename
 if (!empty($user['avatar'])) {
-    $encoded = base64_encode($user['avatar']);
-    $displayImage = "data:image/jpeg;base64," . $encoded;
+    // avatar stores just the filename (e.g. avatar_3_1718123456.jpg)
+    $displayImage = "uploads/avatars/" . htmlspecialchars($user['avatar']);
 } else {
     $displayImage = "img/default-avatar.png";
 }
