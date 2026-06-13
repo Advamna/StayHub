@@ -85,7 +85,7 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['is_host']) || $_SESSION['i
                 </div>
                 <div>
                     <label>Max Guests</label>
-                    <input type="number" name="voyageur_count" placeholder="4" required>
+                    <input type="number" name="max_guests" placeholder="4" required>
                 </div>
                 <div>
                     <label>Beds</label>
