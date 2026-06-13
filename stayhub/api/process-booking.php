@@ -50,7 +50,7 @@ if (!$d1 || !$d2 || $d2 <= $d1) {
 }
 
 // ── Fetch listing + host email ──
-$listingSql  = "SELECT l.price, l.voyageur_count, l.title, l.location, u.email AS HostEmail, u.name AS HostName
+$listingSql  = "SELECT l.price, l.max_guests, l.title, l.location, u.email AS HostEmail, u.name AS HostName
                 FROM listings l JOIN users u ON l.user_id = u.id WHERE l.id = ?";
 $listingStmt = sqlsrv_query($conn, $listingSql, [$listing_id]);
 if (!$listingStmt) {
@@ -62,7 +62,7 @@ $listingRow = sqlsrv_fetch_array($listingStmt, SQLSRV_FETCH_ASSOC);
 if (!$listingRow) { header('Location: ../index.php'); exit; }
 
 // ── Validate guest count ──
-$max_guests = (int)$listingRow['voyageur_count'];
+$max_guests = (int)$listingRow['max_guests'];
 if ($guests_req < 1) $guests_req = 1;
 if ($max_guests > 0 && $guests_req > $max_guests) {
     header("Location: ../listing.php?id=$listing_id&error=too_many_guests");
