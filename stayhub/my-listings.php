@@ -481,16 +481,58 @@ $listing_ids = array_column($listings, 'id');
             .page-header { flex-direction: column; align-items: flex-start; }
         }
 
+        /* ══════════════════════════════════════════
+           STAYHUB UNIVERSAL PRINT STYLES
+           ══════════════════════════════════════════ */
         @media print {
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background: #fff !important; margin: 0; padding: 0; }
+            @page { margin: 14mm 12mm 14mm 12mm; size: A4 portrait; }
+
+            .top-nav, .nav-bar, .sidebar, .filter-bar,
+            .btn-print, .btn-add-listing, .btn-sm,
+            .action-buttons, .stats-bar, .bookings-toggle,
+            .alert, .delete-overlay, .adm-overlay,
+            .no-print { display: none !important; }
+
+            .main-content { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
+            .container    { margin: 0; padding: 0; max-width: 100%; }
+            .page-header  { padding: 0 0 16px 0 !important; }
+
+            .print-header {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                padding-bottom: 12px;
+                margin-bottom: 18px;
+                border-bottom: 2.5px solid #ff385c;
+            }
+            .print-logo { font-size: 28px; font-weight: 900; color: #ff385c !important; letter-spacing: -0.5px; }
+            .print-logo span { color: #222 !important; }
+            .print-meta { text-align: right; font-size: 11px; color: #555 !important; line-height: 1.8; }
+            .print-meta strong { color: #111 !important; font-size: 12px; }
+
+            .section-card, .listing-block, .notification-card {
+                box-shadow: none !important; border: 1px solid #ddd !important;
+                break-inside: avoid; margin-bottom: 12px !important; border-radius: 8px !important;
+            }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #e0e0e0; padding: 8px 10px; }
+            th { background: #f9f9f9 !important; font-weight: 600; font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; }
+            .listing-img { width: 120px !important; min-height: 80px !important; }
+            .bookings-table-wrap { display: block !important; }
+            .bookings-section { page-break-inside: auto; }
+
+            /* single-listing print mode */
             body.print-single .listing-block { display: none !important; }
             body.print-single .listing-block.print-target { display: block !important; }
-            .top-nav, .btn-add-listing, .stats-bar, .action-buttons, .bookings-toggle, .alert, .delete-overlay { display: none !important; }
-            body { background: #fff; }
-            .page-header { padding-top: 0; padding-bottom: 20px; }
-            .listing-block { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; margin-bottom: 30px; }
-            .bookings-table-wrap { display: block !important; }
-            .listing-img { width: 150px; min-height: 100px; }
-            .bookings-section { page-break-inside: auto; }
+
+            .print-footer {
+                display: block !important; text-align: center;
+                margin-top: 28px; padding-top: 12px;
+                border-top: 1px solid #eee;
+                font-size: 10px; color: #aaa !important; letter-spacing: 0.3px;
+            }
         }
 
         /* ── Feature 15: Host availability calendar ── */
@@ -521,13 +563,24 @@ $listing_ids = array_column($listings, 'id');
 <body>
 
 <!-- Navbar -->
-<nav class="top-nav">
+<nav class="top-nav no-print">
     <a href="index.php" class="nav-logo">StayHub</a>
     <div class="nav-right">
         <a href="index.php" class="nav-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
         <a href="host-dashboard.php" class="btn-add-listing"><i class="fas fa-plus"></i> Add New Listing</a>
     </div>
 </nav>
+
+<!-- Print letterhead -->
+<div class="print-header" style="display:none;">
+    <div class="print-logo">Stay<span>Hub</span></div>
+    <div class="print-meta">
+        <strong>My Listings</strong><br>
+        <?php echo $totalListings; ?> listing<?php echo $totalListings!=1?'s':''; ?> &bull; <?php echo $totalBookings; ?> booking<?php echo $totalBookings!=1?'s':''; ?><br>
+        Printed: <?php echo date('d/m/Y H:i'); ?>
+    </div>
+</div>
+
 
 <?php
 // Compute totals for stats bar
@@ -873,6 +926,11 @@ function hCalNext(id) { hCalMonths[id].setMonth(hCalMonths[id].getMonth() + 1); 
 hCalInit(<?php echo (int)$l['id']; ?>);
 <?php endforeach; ?>
 </script>
+
+<!-- Print footer -->
+<div class="print-footer" style="display:none;">
+    StayHub &bull; My Listings &bull; Printed <?php echo date('d/m/Y'); ?>
+</div>
 </body>
 </html>
 
