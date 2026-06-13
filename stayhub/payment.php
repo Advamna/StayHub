@@ -190,6 +190,21 @@ $imgSrc = !empty($reservation['image_url'])
         <p style="color: #717171; font-size: 14px; margin-top: -15px; margin-bottom: 20px;">
             <i class="fas fa-lock"></i> All transactions are secure and encrypted. (Mock Payment)
         </p>
+
+        <?php if (!empty($_GET['error'])): ?>
+        <div id="pay-error-banner" style="background:#fff0f0;border:1px solid #f5c6cb;color:#7f1d1d;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:14px;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-exclamation-circle" style="color:#dc2626;"></i>
+            <?php
+            $payErrMap = [
+                'server'  => 'A server error occurred. Please try again.',
+                'csrf'    => 'Security token expired. Please refresh and try again.',
+                'invalid' => 'Invalid reservation. Please go back to My Stays.',
+            ];
+            echo htmlspecialchars($payErrMap[$_GET['error']] ?? urldecode($_GET['error']));
+            ?>
+        </div>
+        <?php endif; ?>
+
         <form action="api/process-payment.php" method="POST" id="payment-form">
             <input type="hidden" name="reservation_id" value="<?php echo (int)$reservation_id; ?>">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
@@ -383,11 +398,16 @@ document.getElementById('payment-form').addEventListener('submit', function(e) {
         if (!expValid)                { expInput.classList.add('input-error');  document.getElementById('hint-exp').classList.add('visible'); }
         return;
     }
-    // All valid — show loading state immediately so it feels instant
+    // All valid — show loading state and let the form POST normally
+    // The server will redirect to receipt.php on success, or back here with ?error= on failure
     const payBtn = document.getElementById('pay-btn');
     payBtn.disabled = true;
     payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing…';
     payBtn.style.opacity = '0.85';
+    console.log('[StayHub] Payment form submitted at', new Date().toISOString(), '— waiting for server redirect.');
+    // Hide any existing error banner (user is retrying)
+    const errBanner = document.getElementById('pay-error-banner');
+    if (errBanner) errBanner.style.display = 'none';
 });
 
 // Show page content immediately (avoid flash of unstyled content)
