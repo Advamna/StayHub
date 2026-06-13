@@ -230,26 +230,63 @@ $showPaymentWarn = isset($_GET['warn']) && $_GET['warn'] === 'payment_log';
 
         /* ── Print styles ── */
         @media print {
-            body { background: #fff; }
-            .receipt-nav .nav-actions,
-            .no-print { display: none !important; }
-            .receipt-card { box-shadow: none; border: 1px solid #ccc; }
-            .status-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background: #fff !important; margin: 0; padding: 0; }
+            @page { margin: 14mm 12mm 14mm 12mm; size: A4 portrait; }
+
+            .receipt-nav, .no-print { display: none !important; }
+            .receipt-page { max-width: 100%; margin: 0; padding: 0; }
+
+            .print-header {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                padding-bottom: 14px;
+                margin-bottom: 20px;
+                border-bottom: 2.5px solid #ff385c;
+            }
+            .print-logo { font-size: 30px; font-weight: 900; color: #ff385c !important; letter-spacing: -0.5px; }
+            .print-logo span { color: #222 !important; }
+            .print-meta { text-align: right; font-size: 11px; color: #666 !important; line-height: 1.7; }
+            .print-meta strong { color: #222 !important; font-size: 12px; }
+
+            .receipt-card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; margin-bottom: 12px !important; }
+            .status-banner { border-radius: 12px !important; padding: 18px 24px !important; margin-bottom: 14px !important; }
+            .status-title { font-size: 17px !important; }
+            .status-sub   { font-size: 12px !important; }
+
+            .print-footer { display: block !important; text-align: center; margin-top: 28px; padding-top: 14px; border-top: 1px solid #eee; font-size: 10px; color: #aaa !important; letter-spacing: 0.3px; }
+
+            .kv-label { font-size: 10px !important; }
+            .kv-value { font-size: 13px !important; }
+            .price-row { padding: 7px 0 !important; font-size: 13px !important; }
+            .card-header h3 { font-size: 13px !important; }
+            .two-col { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
 <body>
 
-<!-- Nav -->
-<nav class="receipt-nav">
+<!-- Nav — screen only -->
+<nav class="receipt-nav no-print">
     <a href="index.php" class="stays-logo">StayHub</a>
-    <div class="nav-actions no-print">
-        <button onclick="window.print()" class="btn-outline"><i class="fas fa-print"></i> Print</button>
+    <div class="nav-actions">
+        <button onclick="window.print()" class="btn-outline"><i class="fas fa-print"></i> Print Receipt</button>
         <a href="my-rentals.php" class="btn-primary-sm"><i class="fas fa-home"></i> My Stays</a>
     </div>
 </nav>
 
 <div class="receipt-page">
+
+    <!-- Print letterhead (hidden on screen, shown when printing) -->
+    <div class="print-header" style="display:none;">
+        <div class="print-logo">Stay<span>Hub</span></div>
+        <div class="print-meta">
+            <strong>Official Booking Receipt</strong><br>
+            Receipt&nbsp;No:&nbsp;<strong><?php echo htmlspecialchars($receipt_number); ?></strong><br>
+            Issued:&nbsp;<?php echo $issued_date; ?>
+        </div>
+    </div>
 
     <!-- ── Status Banner ── -->
     <?php if ($showPaymentWarn && !$hasPaymentData): ?>
@@ -415,6 +452,11 @@ $showPaymentWarn = isset($_GET['warn']) && $_GET['warn'] === 'payment_log';
     </div>
 
     <!-- ── Footer ── -->
+    <!-- Print footer (shown only when printing) -->
+    <div class="print-footer" style="display:none;">
+        Official receipt &bull; StayHub &mdash; <?php echo date('d/m/Y'); ?> &mdash; <?php echo htmlspecialchars($receipt_number); ?>
+    </div>
+
     <div style="text-align:center; margin-top:24px; font-size:13px; color:#aaa;" class="no-print">
         <i class="fas fa-shield-alt"></i> This receipt is your official proof of payment. Keep it for your records.
         &nbsp;&bull;&nbsp; <a href="my-rentals.php" style="color:#ff385c;">View all your stays</a>
