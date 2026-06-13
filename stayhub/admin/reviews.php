@@ -85,7 +85,12 @@ $totalRejected = $statsRaw['rejected'] ?? 0;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Reviews – StayHub Admin</title>
+    <link rel="icon" type="image/png" href="../StayHubIcon.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
     <?php include 'admin-style.php'; ?>
+    </style>
     <style>
         .review-row td { vertical-align: top; padding: 14px 12px; }
         .star-display i { color: #ff385c; font-size: 13px; }
