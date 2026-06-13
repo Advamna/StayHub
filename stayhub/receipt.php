@@ -16,108 +16,94 @@ if (!$reservation_id) {
     exit;
 }
 
-// ── Fetch reservation + listing + host details ────────────────────
+// ── Step 1: Fetch reservation + listing + host (safe, no payments join) ──
 $sql = "SELECT
-            r.*,
+            r.id, r.listing_id, r.user_id, r.guest_name, r.guest_email,
+            r.guest_phone, r.check_in, r.check_out, r.guests,
+            r.total_price, r.status, r.created_at,
             l.title         AS listing_title,
             l.location      AS listing_location,
             l.price         AS nightly_price,
             h.name          AS host_name,
             h.email         AS host_email,
-            h.phone         AS host_phone,
-            p.id            AS payment_id,
-            p.amount        AS payment_amount,
-            p.payment_method,
-            p.payment_status,
-            p.created_at    AS payment_date,
-            inv.invoice_number,
-            inv.tax_amount,
-            inv.total_amount AS invoice_total,
-            inv.issued_at
+            h.phone         AS host_phone
         FROM reservations r
-        JOIN listings l          ON r.listing_id   = l.id
-        JOIN users h             ON l.user_id       = h.id
-        LEFT JOIN payments p     ON p.reservation_id = r.id
-        LEFT JOIN invoices inv   ON inv.payment_id   = p.id
-        WHERE r.id = ? AND r.user_id = ? AND r.status = 'confirmed'";
+        JOIN listings l ON r.listing_id = l.id
+        JOIN users    h ON l.user_id    = h.id
+        WHERE r.id = ? AND r.user_id = ?";
 
 $stmt = sqlsrv_query($conn, $sql, [$reservation_id, $user_id]);
 if (!$stmt) {
-    error_log('receipt.php query error: ' . print_r(sqlsrv_errors(), true));
+    error_log('receipt.php step1 error: ' . print_r(sqlsrv_errors(), true));
     header('Location: my-rentals.php?error=server');
     exit;
 }
 $res = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 if (!$res) {
-    // Fallback: try without strict status=confirmed check
-    // (covers edge case where payment committed but status update lagged)
-    $sql2 = "SELECT
-                r.*,
-                l.title         AS listing_title,
-                l.location      AS listing_location,
-                l.price         AS nightly_price,
-                h.name          AS host_name,
-                h.email         AS host_email,
-                h.phone         AS host_phone,
-                p.id            AS payment_id,
-                p.amount        AS payment_amount,
-                p.payment_method,
-                p.payment_status,
-                p.created_at    AS payment_date,
-                inv.invoice_number,
-                inv.tax_amount,
-                inv.total_amount AS invoice_total,
-                inv.issued_at
-             FROM reservations r
-             JOIN listings l          ON r.listing_id   = l.id
-             JOIN users h             ON l.user_id       = h.id
-             LEFT JOIN payments p     ON p.reservation_id = r.id
-             LEFT JOIN invoices inv   ON inv.payment_id   = p.id
-             WHERE r.id = ? AND r.user_id = ?";
-    $stmt2 = sqlsrv_query($conn, $sql2, [$reservation_id, $user_id]);
-    if ($stmt2) $res = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC);
-    if (!$res) {
-        header('Location: my-rentals.php?error=notfound');
-        exit;
-    }
-    error_log("receipt.php: reservation $reservation_id shown without confirmed status for user $user_id");
+    header('Location: my-rentals.php?error=notfound');
+    exit;
 }
 
-// ── Date calculations ────────────────────────────────────────────────
-$d1    = ($res['check_in']  instanceof DateTime) ? $res['check_in']  : new DateTime($res['check_in']);
-$d2    = ($res['check_out'] instanceof DateTime) ? $res['check_out'] : new DateTime($res['check_out']);
+// ── Step 2: Try to fetch payment record (table may not exist yet) ──
+$payData = null;
+$paymentsExist = sqlsrv_query($conn,
+    "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'payments' AND TABLE_TYPE = 'BASE TABLE'"
+);
+if ($paymentsExist && sqlsrv_fetch_array($paymentsExist, SQLSRV_FETCH_ASSOC)) {
+    $pSql  = "SELECT TOP 1 id, amount, payment_method, payment_status, created_at
+              FROM payments WHERE reservation_id = ? ORDER BY created_at DESC";
+    $pStmt = sqlsrv_query($conn, $pSql, [$reservation_id]);
+    if ($pStmt) {
+        $payData = sqlsrv_fetch_array($pStmt, SQLSRV_FETCH_ASSOC);
+    }
+}
+
+// ── Step 3: Try to fetch invoice record (table may not exist yet) ──
+$invData = null;
+if ($payData) {
+    $invoicesExist = sqlsrv_query($conn,
+        "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'invoices' AND TABLE_TYPE = 'BASE TABLE'"
+    );
+    if ($invoicesExist && sqlsrv_fetch_array($invoicesExist, SQLSRV_FETCH_ASSOC)) {
+        $iSql  = "SELECT TOP 1 invoice_number, tax_amount, total_amount, issued_at
+                  FROM invoices WHERE payment_id = ?";
+        $iStmt = sqlsrv_query($conn, $iSql, [$payData['id']]);
+        if ($iStmt) {
+            $invData = sqlsrv_fetch_array($iStmt, SQLSRV_FETCH_ASSOC);
+        }
+    }
+}
+
+// ── Step 4: Compute display values ───────────────────────────────────
+$d1     = ($res['check_in']  instanceof DateTime) ? $res['check_in']  : new DateTime($res['check_in']);
+$d2     = ($res['check_out'] instanceof DateTime) ? $res['check_out'] : new DateTime($res['check_out']);
 $nights = max(1, $d1->diff($d2)->days);
 
 $nightly_price  = (float)($res['nightly_price'] ?? 0);
 $base_amount    = $nightly_price > 0 ? $nightly_price * $nights : (float)($res['total_price'] ?? 0);
 $cleaning_fee   = 150.00;
 $service_fee    = round($base_amount * 0.10, 2);
-$tax_amount     = (float)($res['tax_amount']    ?? round($base_amount * 0.20, 2));
-$total_amount   = (float)($res['invoice_total'] ?? $res['payment_amount'] ?? $res['total_price'] ?? 0);
-$payment_method = $res['payment_method'] ?? 'Card';
-$payment_status = $res['payment_status'] ?? 'completed';
+$tax_amount     = $invData ? (float)$invData['tax_amount']   : round($base_amount * 0.20, 2);
+$total_amount   = $invData ? (float)$invData['total_amount'] : ($payData ? (float)$payData['amount'] : (float)$res['total_price']);
+$payment_method = $payData['payment_method'] ?? 'Card';
+$payment_status = $payData['payment_status'] ?? 'completed';
 
-// ── Warn flag (payment log missing but reservation is confirmed) ─────
-$showPaymentWarn = isset($_GET['warn']) && $_GET['warn'] === 'payment_log';
-$hasPaymentData  = !empty($res['payment_id']);
-
-// ── Receipt & Invoice numbers ────────────────────────────────────────
-// Use real invoice_number from DB if available, otherwise fallback
-$invoice_number = $res['invoice_number'] ?? ('INV-' . date('Y') . '-' . str_pad($reservation_id, 5, '0', STR_PAD_LEFT));
+$invoice_number = $invData['invoice_number'] ?? ('INV-' . date('Y') . '-' . str_pad($reservation_id, 5, '0', STR_PAD_LEFT));
 $receipt_number = 'REC-' . date('Y') . '-' . str_pad($reservation_id, 6, '0', STR_PAD_LEFT);
 
-// ── Payment date ─────────────────────────────────────────────────────
-if (!empty($res['payment_date'])) {
-    $pDateObj = ($res['payment_date'] instanceof DateTime) ? $res['payment_date'] : new DateTime($res['payment_date']);
+if ($payData && !empty($payData['created_at'])) {
+    $pDateObj = ($payData['created_at'] instanceof DateTime) ? $payData['created_at'] : new DateTime($payData['created_at']);
     $payment_date_str = $pDateObj->format('d/m/Y H:i');
 } else {
-    $payment_date_str = date('d/m/Y H:i');
+    $payment_date_str = $d1->format('d/m/Y') . ' (estimated)';
 }
 
-$issued_date = !empty($res['issued_at'])
-    ? (($res['issued_at'] instanceof DateTime ? $res['issued_at'] : new DateTime($res['issued_at']))->format('d/m/Y'))
+$issued_date = $invData && !empty($invData['issued_at'])
+    ? (($invData['issued_at'] instanceof DateTime ? $invData['issued_at'] : new DateTime($invData['issued_at']))->format('d/m/Y'))
     : date('d/m/Y');
-?>
+
+$hasPaymentData  = !empty($payData);
+$showPaymentWarn = isset($_GET['warn']) && $_GET['warn'] === 'payment_log';
 <!DOCTYPE html>
 <html lang="en">
 <head>
