@@ -2,9 +2,6 @@
 session_start();
 if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); }
 require_once 'config.php';
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if (!$id) die("ID missing");
@@ -14,7 +11,9 @@ $stmt    = sqlsrv_query($conn, $sql, [$id]);
 $listing = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 if (!$listing) die("Listing not found.");
 
-$title = htmlspecialchars($listing['title']);
+$title    = htmlspecialchars($listing['title']);
+$price    = (float)$listing['price'];
+$location = htmlspecialchars($listing['location'] ?? '');
 srand((int)$id);
 $guests = ($listing['voyageur_count'] > 0) ? $listing['voyageur_count'] : rand(2, 6);
 $beds   = ($listing['bed_count']      > 0) ? $listing['bed_count']      : rand(1, 4);
