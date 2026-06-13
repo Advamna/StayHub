@@ -48,7 +48,12 @@ $sql = "SELECT l.id, l.title, l.location, l.price, l.is_flagged, l.flag_reason,
 
 $stmt = $params ? sqlsrv_query($conn, $sql, $params) : sqlsrv_query($conn, $sql);
 $listings = [];
-while ($r = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) $listings[] = $r;
+if ($stmt === false) {
+    // Query failed — log error and show empty list gracefully
+    error_log('admin/listings.php query error: ' . print_r(sqlsrv_errors(), true));
+} else {
+    while ($r = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) $listings[] = $r;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
