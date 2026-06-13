@@ -70,6 +70,11 @@ if ($max_guests > 0 && $guests_req > $max_guests) {
 }
 
 // ── Availability check ──
+// ── Addon 3: Auto-cancel expired holds before checking availability ──
+$expireSql = "UPDATE reservations SET status='cancelled'
+              WHERE status='pending' AND expires_at IS NOT NULL AND expires_at < GETDATE()";
+sqlsrv_query($conn, $expireSql);
+
 $checkSql  = "SELECT COUNT(*) AS cnt FROM reservations
               WHERE listing_id = ?
               AND (CAST(? AS DATE) < check_out AND CAST(? AS DATE) > check_in)
@@ -93,9 +98,10 @@ if ($days < 1) $days = 1;
 $total_price = $daily_price * $days;
 
 // ── Insert reservation ──
+// Addon 3: set 48-hour payment deadline
 $insertSql = "INSERT INTO reservations
-              (listing_id, user_id, guest_name, guest_email, guest_phone, check_in, check_out, guests, total_price, status, created_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', GETDATE())";
+              (listing_id, user_id, guest_name, guest_email, guest_phone, check_in, check_out, guests, total_price, status, created_at, expires_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', GETDATE(), DATEADD(HOUR, 48, GETDATE()))";
 $params    = [$listing_id, $user_id, $name, $email, $phone, $check_in, $check_out, $guests_req, $total_price];
 $stmt      = sqlsrv_query($conn, $insertSql, $params);
 
