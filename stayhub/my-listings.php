@@ -15,7 +15,7 @@ $user_id = $_SESSION['user_id'];
 $sql_listings = "
     SELECT
         l.id, l.user_id, l.title, l.description, l.location,
-        l.price, l.voyageur_count, l.bed_count, l.created_at, l.status,
+        l.price, l.max_guests, l.bed_count, l.created_at, l.status,
         i.image_url AS main_photo,
         (SELECT COUNT(*) FROM reservations r WHERE r.listing_id = l.id) AS total_bookings,
         COALESCE(
@@ -689,7 +689,7 @@ foreach ($listings as $l) {
                     </div>
                     <div class="listing-meta-row">
                         <span><i class="fas fa-tag"></i> <?php echo number_format($listing['price'], 0); ?> MAD / night</span>
-                        <span><i class="fas fa-users"></i> Up to <?php echo (int)$listing['voyageur_count']; ?> guests</span>
+                        <span><i class="fas fa-users"></i> Up to <?php echo (int)$listing['max_guests']; ?> guests</span>
                         <span><i class="fas fa-bed"></i> <?php echo (int)$listing['bed_count']; ?> bed<?php echo $listing['bed_count'] > 1 ? 's' : ''; ?></span>
                         <span><i class="fas fa-calendar-alt"></i> <?php echo (int)$listing['total_bookings']; ?> booking<?php echo $listing['total_bookings'] != 1 ? 's' : ''; ?></span>
                     </div>
