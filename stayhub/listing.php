@@ -15,7 +15,7 @@ $title    = htmlspecialchars($listing['title']);
 $price    = (float)$listing['price'];
 $location = htmlspecialchars($listing['location'] ?? '');
 srand((int)$id);
-$guests = ($listing['voyageur_count'] > 0) ? $listing['voyageur_count'] : rand(2, 6);
+$guests = ($listing['max_guests'] > 0) ? $listing['max_guests'] : rand(2, 6);
 $beds   = ($listing['bed_count']      > 0) ? $listing['bed_count']      : rand(1, 4);
 
 $descriptions = [
@@ -485,7 +485,7 @@ if (isset($_SESSION['user_id'])) {
         <div class="details">
             <h3>Entire home hosted by <?php echo htmlspecialchars($listing['HostName']); ?></h3>
             <p style="color:#717171;display:flex;flex-wrap:wrap;gap:16px;font-size:15px;margin:6px 0 0;">
-                <span><i class="fas fa-users" style="color:#ff385c;margin-right:5px;"></i><?php echo (int)$listing['voyageur_count'] ?: $guests; ?> guests</span>
+                <span><i class="fas fa-users" style="color:#ff385c;margin-right:5px;"></i><?php echo (int)$listing['max_guests'] ?: $guests; ?> guests</span>
                 <span><i class="fas fa-door-open" style="color:#ff385c;margin-right:5px;"></i><?php echo (int)($listing['bedrooms'] ?? 1); ?> bedroom<?php echo ($listing['bedrooms'] ?? 1) > 1 ? 's' : ''; ?></span>
                 <span><i class="fas fa-bed" style="color:#ff385c;margin-right:5px;"></i><?php echo (int)($listing['bed_count'] ?? $beds); ?> bed<?php echo ($listing['bed_count'] ?? $beds) > 1 ? 's' : ''; ?></span>
                 <span><i class="fas fa-bath" style="color:#ff385c;margin-right:5px;"></i><?php echo (int)($listing['bathrooms'] ?? 1); ?> bathroom<?php echo ($listing['bathrooms'] ?? 1) > 1 ? 's' : ''; ?></span>
@@ -763,7 +763,7 @@ if (isset($_SESSION['user_id'])) {
                     <label><i class="fas fa-users"></i> Guests</label>
                     <select name="guests" id="guestsField">
                         <?php
-                        $maxG = max(1, (int)($listing['voyageur_count'] ?? $listing['guests'] ?? $guests ?? 2));
+                        $maxG = max(1, (int)($listing['max_guests'] ?? $listing['guests'] ?? $guests ?? 2));
                         for ($g = 1; $g <= $maxG; $g++): ?>
                             <option value="<?php echo $g; ?>"><?php echo $g; ?> Guest<?php echo $g > 1 ? 's' : ''; ?></option>
                         <?php endfor; ?>
@@ -1161,3 +1161,4 @@ function dismissReminder(resId) {
 
 </body>
 </html>
+
