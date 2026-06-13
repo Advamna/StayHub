@@ -33,17 +33,17 @@ if (!$check_stmt || !sqlsrv_fetch_array($check_stmt, SQLSRV_FETCH_ASSOC)) {
 $title          = htmlspecialchars(trim($_POST['title']          ?? ''));
 $location       = htmlspecialchars(trim($_POST['location']       ?? ''));
 $price          = (float)($_POST['price']          ?? 0);
-$voyageur_count = (int)($_POST['voyageur_count']   ?? 1);
+$max_guests = (int)($_POST['max_guests']   ?? 1);
 $bed_count      = (int)($_POST['bed_count']        ?? 1);
 $description    = htmlspecialchars(trim($_POST['description']    ?? ''));
 
 // Update listing row
 $sql_update = "
     UPDATE listings
-    SET title = ?, location = ?, price = ?, voyageur_count = ?, bed_count = ?, description = ?
+    SET title = ?, location = ?, price = ?, max_guests = ?, bed_count = ?, description = ?
     WHERE id = ? AND user_id = ?
 ";
-$params = [$title, $location, $price, $voyageur_count, $bed_count, $description, $listing_id, $user_id];
+$params = [$title, $location, $price, $max_guests, $bed_count, $description, $listing_id, $user_id];
 $stmt   = sqlsrv_query($conn, $sql_update, $params);
 
 if (!$stmt) {
