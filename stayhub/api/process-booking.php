@@ -98,11 +98,12 @@ if ($days < 1) $days = 1;
 $total_price = $daily_price * $days;
 
 // ── Insert reservation ──
-// Addon 3: set 48-hour payment deadline
+// Payment deadline: 8 hours for 1-night stays, 48 hours for 2+ nights
+$payHours  = ($days === 1) ? 8 : 48;
 $insertSql = "INSERT INTO reservations
               (listing_id, user_id, guest_name, guest_email, guest_phone, check_in, check_out, guests, total_price, status, created_at, expires_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', GETDATE(), DATEADD(HOUR, 48, GETDATE()))";
-$params    = [$listing_id, $user_id, $name, $email, $phone, $check_in, $check_out, $guests_req, $total_price];
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', GETDATE(), DATEADD(HOUR, ?, GETDATE()))";
+$params    = [$listing_id, $user_id, $name, $email, $phone, $check_in, $check_out, $guests_req, $total_price, $payHours];
 $stmt      = sqlsrv_query($conn, $insertSql, $params);
 
 if (!$stmt) {
@@ -138,6 +139,7 @@ $guestBody    = "Hi $name,\n\n"
     . "  Duration : $days night" . ($days > 1 ? 's' : '') . "\n"
     . "  Guests   : $guests_req\n"
     . "  Total    : " . number_format($total_price, 0) . " MAD\n\n"
+    . "Payment deadline: " . $payHours . " hours from now\n"
     . "View your stay: $siteUrl/my-rentals.php\n\n"
     . "See you soon!\n— The StayHub Team";
 
