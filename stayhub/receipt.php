@@ -22,9 +22,9 @@ $sql = "SELECT
             l.title         AS listing_title,
             l.location      AS listing_location,
             l.price         AS nightly_price,
-            host.name       AS host_name,
-            host.email      AS host_email,
-            host.phone      AS host_phone,
+            h.name          AS host_name,
+            h.email         AS host_email,
+            h.phone         AS host_phone,
             p.id            AS payment_id,
             p.amount        AS payment_amount,
             p.payment_method,
@@ -36,7 +36,7 @@ $sql = "SELECT
             inv.issued_at
         FROM reservations r
         JOIN listings l          ON r.listing_id   = l.id
-        JOIN users host          ON l.user_id       = host.id
+        JOIN users h             ON l.user_id       = h.id
         LEFT JOIN payments p     ON p.reservation_id = r.id
         LEFT JOIN invoices inv   ON inv.payment_id   = p.id
         WHERE r.id = ? AND r.user_id = ? AND r.status = 'confirmed'";
@@ -49,15 +49,38 @@ if (!$stmt) {
 }
 $res = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 if (!$res) {
-    // Try fetching without confirmed status check — maybe status isn't confirmed yet
-    $stmt2 = sqlsrv_query($conn, str_replace("AND r.status = 'confirmed'", "", $sql), [$reservation_id, $user_id]);
+    // Fallback: try without strict status=confirmed check
+    // (covers edge case where payment committed but status update lagged)
+    $sql2 = "SELECT
+                r.*,
+                l.title         AS listing_title,
+                l.location      AS listing_location,
+                l.price         AS nightly_price,
+                h.name          AS host_name,
+                h.email         AS host_email,
+                h.phone         AS host_phone,
+                p.id            AS payment_id,
+                p.amount        AS payment_amount,
+                p.payment_method,
+                p.payment_status,
+                p.created_at    AS payment_date,
+                inv.invoice_number,
+                inv.tax_amount,
+                inv.total_amount AS invoice_total,
+                inv.issued_at
+             FROM reservations r
+             JOIN listings l          ON r.listing_id   = l.id
+             JOIN users h             ON l.user_id       = h.id
+             LEFT JOIN payments p     ON p.reservation_id = r.id
+             LEFT JOIN invoices inv   ON inv.payment_id   = p.id
+             WHERE r.id = ? AND r.user_id = ?";
+    $stmt2 = sqlsrv_query($conn, $sql2, [$reservation_id, $user_id]);
     if ($stmt2) $res = sqlsrv_fetch_array($stmt2, SQLSRV_FETCH_ASSOC);
     if (!$res) {
         header('Location: my-rentals.php?error=notfound');
         exit;
     }
-    // Log that receipt was accessed for non-confirmed booking
-    error_log("receipt.php: reservation $reservation_id accessed by user $user_id — status may not be confirmed");
+    error_log("receipt.php: reservation $reservation_id shown without confirmed status for user $user_id");
 }
 
 // ── Date calculations ────────────────────────────────────────────────
