@@ -37,7 +37,7 @@ if ($filter === 'pending') { $where[] = "l.status = 'pending'"; }
 $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
 $sql = "SELECT l.id, l.title, l.location, l.price, l.is_flagged, l.flag_reason,
-               l.voyageur_count, l.bed_count, l.created_at, l.status,
+               l.max_guests, l.bed_count, l.created_at, l.status,
                u.id AS user_id, u.name AS host, u.email AS host_email, u.is_banned,
                i.image_url
         FROM listings l
@@ -49,8 +49,11 @@ $sql = "SELECT l.id, l.title, l.location, l.price, l.is_flagged, l.flag_reason,
 $stmt = $params ? sqlsrv_query($conn, $sql, $params) : sqlsrv_query($conn, $sql);
 $listings = [];
 if ($stmt === false) {
-    // Query failed — log error and show empty list gracefully
-    error_log('admin/listings.php query error: ' . print_r(sqlsrv_errors(), true));
+    // Query failed — show error details for debugging
+    $errDetails = sqlsrv_errors();
+    error_log('admin/listings.php query error: ' . print_r($errDetails, true));
+    // Display a visible admin error notice
+    echo '<div style="background:#f8d7da;color:#842029;padding:12px 18px;border-radius:8px;margin:16px 0;font-size:13px;"><strong>SQL Error:</strong> ' . htmlspecialchars(print_r($errDetails, true)) . '</div>';
 } else {
     while ($r = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) $listings[] = $r;
 }
@@ -207,7 +210,7 @@ if ($stmt === false) {
                         <div>
                             <a href="../listing.php?id=<?php echo $l['id']; ?>" target="_blank"><?php echo htmlspecialchars($l['title']); ?></a>
                             <div style="color:#8892a4; font-size:11px; margin-top:2px;">
-                                <?php echo $l['voyageur_count']; ?> guests · <?php echo $l['bed_count']; ?> beds
+                                <?php echo $l['max_guests']; ?> guests · <?php echo $l['bed_count']; ?> beds
                             </div>
                         </div>
                     </div>
