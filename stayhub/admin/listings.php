@@ -32,11 +32,11 @@ if ($search !== '') {
 }
 if ($filter === 'flagged') { $where[] = "l.is_flagged = 1"; }
 if ($filter === 'active')  { $where[] = "l.status = 'active' AND l.is_flagged = 0"; }
-if ($filter === 'pending') { $where[] = "l.status = 'pending'"; }
+if ($filter === 'pending') { $where[] = "l.status = 'suspended'"; }
 
 $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
-$sql = "SELECT l.id, l.title, l.location, l.price, l.is_flagged, l.flag_reason,
+$sql = "SELECT l.id, l.title, l.location, l.price, l.is_flagged,
                l.max_guests, l.bed_count, l.created_at, l.status,
                u.id AS user_id, u.name AS host, u.email AS host_email, u.is_banned,
                i.image_url
@@ -171,7 +171,7 @@ if ($stmt === false) {
         <input type="text" name="search" placeholder="Search by title, location, or host…" value="<?php echo htmlspecialchars($search); ?>">
         <select name="filter">
             <option value="all"     <?php echo $filter==='all'     ?'selected':''; ?>>All listings</option>
-            <option value="pending" <?php echo $filter==='pending' ?'selected':''; ?>>Pending Approval</option>
+            <option value="pending" <?php echo $filter==='pending' ?'selected':''; ?>>Suspended</option>
             <option value="flagged" <?php echo $filter==='flagged' ?'selected':''; ?>>Flagged only</option>
             <option value="active"  <?php echo $filter==='active'  ?'selected':''; ?>>Active only</option>
         </select>
@@ -234,7 +234,7 @@ if ($stmt === false) {
                     <?php endif; ?>
                 </td>
                 <td style="max-width:140px; white-space:normal; font-size:12px; color:#fbbf24;">
-                    <?php echo $l['is_flagged'] ? htmlspecialchars($l['flag_reason'] ?? '—') : '<span style="color:#8892a4;">—</span>'; ?>
+                    <?php echo $l['is_flagged'] ? htmlspecialchars(($l['is_flagged'] ? 'Flagged' : '—') ?? '—') : '<span style="color:#8892a4;">—</span>'; ?>
                 </td>
                 <td style="text-align:center; white-space:nowrap;">
                     <button class="btn-sm btn-outline" style="margin-right:4px;" onclick="printSingle(<?php echo $l['id']; ?>)">
