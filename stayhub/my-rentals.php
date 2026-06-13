@@ -373,8 +373,11 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
                 'notfound'          => 'Reservation not found.',
                 'db'                => 'A database error occurred. Please try again.',
                 'invalid'           => 'Invalid request.',
+                'server'            => 'Could not load the receipt. Please try again.',
+                'expired'           => 'Your reservation expired before payment was completed.',
+                'csrf'              => 'Security token expired. Please refresh and try again.',
             ];
-            echo $errMap[$_GET['error']] ?? 'Something went wrong.';
+            echo $errMap[$_GET['error']] ?? 'An unexpected error occurred. Please try again.';
         ?>
     </div>
 <?php endif; ?>
