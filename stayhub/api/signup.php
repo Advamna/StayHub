@@ -32,6 +32,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $_SESSION['user_name']   = $full_name;
         $_SESSION['user_avatar'] = "default-avatar.png";
 
+        // ── Issue 3 Fix: Migrate guest wishlist (localStorage IDs sent via hidden field) ──
+        $guestWishlist = $_POST['guest_wishlist'] ?? '';
+        if (!empty($guestWishlist) && !empty($user['id'])) {
+            $ids = array_filter(array_map('intval', explode(',', $guestWishlist)));
+            foreach ($ids as $lid) {
+                if ($lid > 0) {
+                    $chk = sqlsrv_query($conn,
+                        "SELECT id FROM wishlists WHERE user_id = ? AND listing_id = ?",
+                        [$user['id'], $lid]
+                    );
+                    if ($chk && !sqlsrv_fetch_array($chk, SQLSRV_FETCH_ASSOC)) {
+                        sqlsrv_query($conn,
+                            "INSERT INTO wishlists (user_id, listing_id, created_at) VALUES (?, ?, GETDATE())",
+                            [$user['id'], $lid]
+                        );
+                    }
+                }
+            }
+        }
+
         header("Location: ../index.php");
         exit();
     } else {
@@ -256,7 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         });
     });
 
-    // ── Submit guard ──
+    // ── Submit guard + guest wishlist migration ──
     form.addEventListener('submit', function (e) {
         let hasError = false;
         fields.forEach(function(f) {
@@ -266,7 +286,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             showError(inputEl, errEl, msg);
             if (msg) hasError = true;
         });
-        if (hasError) e.preventDefault();
+        if (hasError) { e.preventDefault(); return; }
+        // Carry over guest localStorage wishlist
+        try {
+            var guestWish = JSON.parse(localStorage.getItem('stayhub_wishlist') || '[]');
+            if (guestWish.length > 0) {
+                var hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'guest_wishlist';
+                hidden.value = guestWish.join(',');
+                form.appendChild(hidden);
+                localStorage.removeItem('stayhub_wishlist'); // clear after migration
+            }
+        } catch(err) { /* ignore localStorage errors */ }
     });
 })();
 </script>
